@@ -1,0 +1,3 @@
+# 机器本地生成，永不入库（见 CONTEXT.md「配置文件」词条）
+.vps-init.conf
+*.log
