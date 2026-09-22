@@ -73,7 +73,11 @@ backup_file() {
 
 conf_has()   { grep -q "^${1}=" "${CONF}" 2>/dev/null; }
 conf_read()  { sed -n "s/^${1}='\(.*\)'\$/\1/p" "${CONF}" 2>/dev/null | head -n 1; }
-conf_write() { printf "%s='%s'\n" "$1" "$2" >> "${CONF}"; }
+conf_write() {
+  local k="$1" v="$2"
+  v="${v//\'/\'\\\'\'}"
+  printf "%s='%s'\n" "${k}" "${v}" >> "${CONF}"
+}
 
 v_ssh_port() {
   local p="$1"

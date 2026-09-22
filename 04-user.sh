@@ -70,6 +70,7 @@ conf_has()   { grep -q "^${1}=" "${CONF}" 2>/dev/null; }
 conf_read()  { sed -n "s/^${1}='\\(.*\\)'\$/\\1/p" "${CONF}" 2>/dev/null | head -n 1; }
 conf_write() {
   local k="$1" v="$2"
+  v="${v//\'/\'\\\'\'}"
   printf "%s='%s'\n" "${k}" "${v}" >> "${CONF}"
 }
 
@@ -189,11 +190,20 @@ if [[ -n "${RAW:-}" ]]; then
   done <<< "${RAW}"
 fi
 
-# 新键写入 conf（SSH_PUBKEY_N）
-idx=$(( ${#PUBKEYS[@]} + 1 ))
 for k in "${NEW_KEYS[@]}"; do
-  conf_write "SSH_PUBKEY_${idx}" "${k}"
   PUBKEYS+=("${k}")
+done
+# 新键写入 conf（SSH_PUBKEY_N）；先清掉旧 N 键再统一回写，防重跑累积重复
+while :; do
+  if grep -q "^SSH_PUBKEY_[0-9]*=" "${CONF}" 2>/dev/null; then
+    sed -i "/^SSH_PUBKEY_[0-9]*=/d" "${CONF}"
+  else
+    break
+  fi
+done
+idx=1
+for k in "${PUBKEYS[@]}"; do
+  conf_write "SSH_PUBKEY_${idx}" "${k}"
   idx=$((idx + 1))
 done
 
@@ -202,13 +212,14 @@ SSH_DIR="${HOME_DIR}/.ssh"
 mkdir -p "${SSH_DIR}"
 chmod 700 "${SSH_DIR}"
 AK="${SSH_DIR}/authorized_keys"
+OWNER_GID="$(id -g "${ADMIN_USER}")"
+# 以目标属主/权限创建（不存在时），消除 root:root 644 中间态
+[[ -e "${AK}" ]] || install -m 600 -o "${ADMIN_USER}" -g "${OWNER_GID}" /dev/null "${AK}"
 for k in "${PUBKEYS[@]}"; do
   grep -qFx -- "${k}" "${AK}" 2>/dev/null || printf '%s\n' "${k}" >> "${AK}"
 done
-OWNER_GID="$(id -g "${ADMIN_USER}")"
 chown "${ADMIN_USER}:${OWNER_GID}" "${SSH_DIR}" "${AK}"
 chmod 700 "${SSH_DIR}"; chmod 600 "${AK}"
-
 log "authorized_keys 已更新：${#PUBKEYS[@]} 个公钥"
 log "checklist 第 4 步完成，可勾选"
 log "闸门：新开终端验证 ssh ${ADMIN_USER}@<host> 密钥登录 + sudo -v；通过前禁止执行 05/06"
