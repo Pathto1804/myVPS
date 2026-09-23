@@ -20,6 +20,13 @@
 - **创建初始 Snapshot**——整个流程唯一不可替代的一步，锁死时的救命稻草
 - 本地生成 SSH 密钥（已有则跳过）：`ssh-keygen -t ed25519`
 - 云镜像一般自带 curl，没有就 `apt install -y curl`
+- **国内服务器先换源**：默认官方源国内访问慢；用 [linuxmirrors](https://linuxmirrors.cn) 的一键脚本换国内镜像源，换源在步骤 1 之前做，海外服务器不需要这步：
+
+  ```bash
+  bash <(curl -sSL https://linuxmirrors.cn/main.sh)
+  ```
+
+  按提示选镜像站和协议即可，脚本改动源文件前会自动备份；不想交互可直接 `--source mirrors.aliyun.com --protocol https` 指定。详细交互与参数见[手动教程](docs/tutorial.md#0-云平台基础检查)。
 
 ## 执行流程
 
@@ -105,7 +112,7 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/09-
 
 做什么：写入 `/etc/sysctl.d/99-bbr.conf`——开启 BBR 拥塞控制 + fq 队列，附带一组 TCP 缓冲/连接参数调优；`sysctl -p` 应用后验证 `tcp_congestion_control = bbr`。个别键若被新内核移除（如 `tcp_fack`）仅警告不中断。
 
-> 注意：仓库里的 `09-bbr.sh` 参数是根据我自己的 VPS（线路、内存、用途）特调的，**不一定适合你的机器**。想要匹配自己 VPS 的脚本，请去 <https://omnitt.com> 获取专属调参配置。
+> 注意：仓库里的 `09-bbr.sh` 参数是根据我自己的 VPS（线路、内存、用途）特调的，**不一定适合你的机器**。想要匹配自己 VPS 的脚本，可去 <https://omnitt.com> 获取；从外部站点拉脚本执行前，请**自己检查脚本内容的安全性**再运行。
 
 **10. 自动安全更新**（手动）
 
@@ -118,7 +125,15 @@ cat /etc/apt/apt.conf.d/20auto-upgrades   # 确认 Update/Upgrade 均为 "1"
 
 **11. Docker**（仅提示，不自动安装）
 
-本轮初始化不安装 Docker。需要时后续自行安装（官方仓库安装指引见 docs.docker.com，注意核对官方最新写法；`docker` 组权限等价于 root，与禁 root 登录的目标有冲突，知情即可）。装完用 `docker run --rm hello-world` 验证。
+本轮初始化不安装 Docker。需要时后续自行安装——用 [linuxmirrors](https://linuxmirrors.cn) 维护的一键脚本（装 Docker Engine + 配镜像加速，国内服务器尤其合适）：
+
+```bash
+bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
+```
+
+> ⚠️ 脚本会问"是否关闭防火墙"——**选否**（或直接加 `--close-firewall false`），否则我们刚配好的 ufw 会被关掉。
+
+不想交互可 `--source mirrors.aliyun.com --source-registry docker.1ms.run --install-latest true --close-firewall false` 全自动跳过选择。或按官方仓库安装指引（docs.docker.com，注意核对最新写法）。`docker` 组权限等价于 root，与禁 root 登录的目标有冲突，知情即可。装完用 `docker run --rm hello-world` 验证。完整交互与参数见[手动教程](docs/tutorial.md#11-docker提示)。
 
 **12–13. 终检 + 归档**
 

@@ -19,6 +19,37 @@ sshd -T 2>/dev/null | grep ^port             # 当前 SSH 端口（厂商可能�
 - 记录安全组当前放行规则——注意放行的是不是上面查到的那个端口
 - **创建初始 Snapshot**——后面所有步骤的最终退路，唯一不可替代的一步
 
+国内服务器建议先换源（默认官方源国内访问慢）。换源在步骤 1 之前做，海外服务器跳过：
+
+```bash
+bash <(curl -sSL https://linuxmirrors.cn/main.sh)
+```
+
+这是 SuperManito 的 [LinuxMirrors](https://linuxmirrors.cn) 开源换源脚本（MIT，支持 Debian/Ubuntu 等主流系统）。运行后按提示操作：
+
+1. 选一个镜像站（阿里云 / 腾讯云 / 清华 / 中科大等都行，一般选第一个阿里云）
+2. 选协议——有 HTTPS 选 HTTPS
+3. 问"是否备份已有源"选是；问"是否更新软件源"和"是否升级软件包"——如果接下来要做步骤 1，这里可以直接选否（步骤 1 会做）；问清理缓存随意
+
+脚本会自动改 `/etc/apt/sources.list`（新版 Ubuntu/Debian 是 `sources.list.d/ubuntu.sources`），改动前自动备份为 `.bak`。
+
+不想一步步点，可以直接用参数跳过去（完整列表跑 `--help` 查看）：
+
+| 参数 | 作用 |
+|---|---|
+| `--edu` / `--abroad` | 教育网镜像列表 / 海外镜像列表（二选一，默认大陆列表） |
+| `--source <地址>` | 直接指定镜像站地址，跳过选择 |
+| `--protocol https` | 直接指定协议，跳过选择 |
+| `--only-epel` | 只处理 EPEL（红帽系） |
+| `--zh` / `--en` | 指定界面语言 |
+| `--pure-mode` | 纯净模式，去掉广告输出 |
+
+例：直接用阿里云 + HTTPS，不交互：
+
+```bash
+bash <(curl -sSL https://linuxmirrors.cn/main.sh) --source mirrors.aliyun.com --protocol https
+```
+
 本地机器上准备好 SSH 密钥（已有则跳过）：
 
 ```bash
@@ -205,7 +236,38 @@ Ubuntu 一般已经开着了；Debian 装的时候会问你，选"是"。之后�
 
 ## 11. Docker（提示）
 
-这次初始化不装 Docker。以后要装就去 [docs.docker.com](https://docs.docker.com/engine/install/) 照官方文档来。提醒一句：把自己加进 `docker` 组基本等于 root 权限，知道这点再决定加不加。装完跑 `docker run --rm hello-world` 能出欢迎信息就 OK。
+这次初始化不装 Docker。以后要装，用 [linuxmirrors](https://linuxmirrors.cn) 的一键脚本（装 Docker Engine 全家桶 + 配置镜像加速，国内服务器尤其合适）：
+
+```bash
+bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
+```
+
+运行后按提示操作：
+
+1. 选 **Docker CE 软件源**（装 Docker 用的源）：国内选阿里云/清华等，海外选官方源
+2. 选 **Registry 镜像仓库**（拉取镜像用的加速器）：国内服务器必选一个（脚本有推荐项），海外可以选官方 Docker Hub
+3. 问"是否关闭防火墙"——**选否**！我们刚配好 ufw，关了等于白配（脚本默认会问，注意别顺手回车）
+4. 是否安装最新版：选是
+
+脚本会装 `docker-ce` + `compose` 插件，写 `/etc/docker/daemon.json`（已有会备份）。或照 [docs.docker.com](https://docs.docker.com/engine/install/) 官方文档来。提醒一句：把自己加进 `docker` 组基本等于 root 权限，知道这点再决定加不加。装完跑 `docker run --rm hello-world` 能出欢迎信息就 OK。
+
+不想一步步点，常用参数（完整列表跑 `--help`）：
+
+| 参数 | 作用 |
+|---|---|
+| `--source <地址>` | 直接指定 Docker CE 软件源地址 |
+| `--source-registry <地址>` | 直接指定 Registry 镜像仓库 |
+| `--install-latest true` | 直接装最新版，跳过版本询问 |
+| `--close-firewall false` | 明确不关防火墙（推荐加，避免误关） |
+| `--only-registry` | 只改 daemon.json 镜像加速，不重装 Docker |
+| `--designated-version <版本>` | 装指定版本，如 `26.1.0` |
+| `--lang zh-hans` | 中文界面 |
+
+例：阿里云 CE 源 + 毫秒镜像加速 + 最新版 + 不动防火墙，全自动：
+
+```bash
+bash <(curl -sSL https://linuxmirrors.cn/docker.sh) --source mirrors.aliyun.com --source-registry docker.1ms.run --install-latest true --close-firewall false
+```
 
 ## 12. 终检
 
