@@ -14,6 +14,12 @@ nproc; free -h; df -h                        # CPU / 内存 / 磁盘
 sshd -T 2>/dev/null | grep ^port             # 当前 SSH 端口（厂商可能不是 22！）
 ```
 
+想测 VPS 实际带宽和磁盘读写（看商家有没有虚标），趁系统干净跑一下 [bench.sh](https://bench.sh)：
+
+```bash
+bash <(curl -Lso- bench.sh)                  # 输出系统信息 + 网络测速 + 磁盘读写
+```
+
 然后到**云平台控制台**：
 
 - 记录安全组当前放行规则——注意放行的是不是上面查到的那个端口
