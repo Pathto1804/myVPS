@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # VPS 初始化 · 06 SSH 加固
 # 自包含 + 幂等 + 交互闸门。用法：sudo bash 06-ssh.sh
-# 项目：https://raw.githubusercontent.com/<user>/myVPS/main/06-ssh.sh
+# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-ssh.sh
 set -euo pipefail
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
@@ -176,4 +176,4 @@ else
   exit 1
 fi
 
-log "checklist 第 6 步完成，可勾选"
+log "第 6 步完成"

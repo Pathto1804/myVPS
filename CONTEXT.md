@@ -1,6 +1,6 @@
 # myVPS — VPS 初始化脚本集
 
-面向 Debian/Ubuntu 新 VPS 的基础安全初始化脚本集的领域语言。每个脚本自包含、幂等，由人工按 checklist 顺序执行，不经任何总控脚本调度。
+面向 Debian/Ubuntu 新 VPS 的基础安全初始化脚本集的领域语言。每个脚本自包含、幂等，由人工按 README 流程执行，不经任何总控脚本调度。
 
 ## Language
 
@@ -9,7 +9,7 @@
 _Avoid_: 模块化脚本、入口脚本、子模块
 
 **编排器**:
-被本项目明确拒绝的形态：由一个总控脚本（如 `init.sh run`）按状态调度其余脚本。本项目中编排由人完成（README 提供命令，checklist 提供顺序）。决策记录见 `docs/adr/0001-no-orchestrator.md`。
+被本项目明确拒绝的形态：由一个总控脚本（如 `init.sh run`）按状态调度其余脚本。本项目中编排由人完成（README 提供命令与顺序）。决策记录见 `docs/adr/0001-no-orchestrator.md`。
 _Avoid_: runner、入口脚本
 
 **闸门**:
@@ -28,4 +28,4 @@ _Avoid_: init.conf、设置向导
 脚本修改任何系统配置文件前自动留存的副本。恢复靠人工从副本还原，脚本不做自动回滚。
 
 **终检报告**（`/root/vps-init-report.md`）:
-`verify.sh` 产出的绿/红检查报告，兼作初始化参数的归档记录。有红项时 `verify.sh` 以退出码 1 结束。
+`12-verify.sh` 产出的绿/红检查报告，兼作初始化参数的归档记录。有红项时 `12-verify.sh` 以退出码 1 结束。

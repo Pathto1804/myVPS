@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # VPS 初始化 · 04 创建管理员用户 + 公钥
 # 自包含 + 幂等 + 交互闸门。用法：sudo bash 04-user.sh
-# 项目：https://raw.githubusercontent.com/<user>/myVPS/main/04-user.sh
+# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-user.sh
 
 set -euo pipefail
 
@@ -221,5 +221,5 @@ done
 chown "${ADMIN_USER}:${OWNER_GID}" "${SSH_DIR}" "${AK}"
 chmod 700 "${SSH_DIR}"; chmod 600 "${AK}"
 log "authorized_keys 已更新：${#PUBKEYS[@]} 个公钥"
-log "checklist 第 4 步完成，可勾选"
+log "第 4 步完成"
 log "闸门：新开终端验证 ssh ${ADMIN_USER}@<host> 密钥登录 + sudo -v；通过前禁止执行 05/06"

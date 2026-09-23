@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # VPS 初始化 · verify 终检 + 归档
 # 自包含 + 只读检查。用法：sudo bash verify.sh
-# 项目：https://raw.githubusercontent.com/<user>/myVPS/main/verify.sh
+# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/verify.sh
 set -euo pipefail
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
@@ -187,4 +187,4 @@ if [[ "${RED}" -gt 0 ]]; then
   warn "存在 ${RED} 项红灯：安全基线未达成，退出码 1"
   exit 1
 fi
-log "无红灯。checklist 第 12 步完成，可勾选（第 13 步：核对报告 + 创建 Snapshot）"
+log "无红灯。第 12 步完成（第 13 步：核对报告 + 创建 Snapshot）"

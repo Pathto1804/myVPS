@@ -1,8 +1,8 @@
-# myVPS — VPS 初始化脚本集
+# myVPS：VPS 初始化脚本集
 
-面向 Debian / Ubuntu 新 VPS 的基础安全初始化脚本集。每个脚本**自包含**（单文件可独立拉取运行）、**幂等**（可重复执行）、带**交互闸门**（危险操作前强制人工确认）。
+新拿到一台 Debian / Ubuntu VPS 后要做的安全初始化。每个脚本自包含（单文件从 GitHub 拉下来就能跑）、幂等（重复执行自动跳过已完成项）、中文交互，危险操作前停下来让你确认。
 
-人工按 [checklist.md](checklist.md) 的顺序执行，README 提供每一步的命令。
+本页是唯一操作手册：流程、命令、检查点都在这里，按步骤顺序执行。
 
 ## 三条铁律
 
@@ -10,45 +10,37 @@
 > 2. **密钥先于禁密码**：`PasswordAuthentication no` 之前，必须已用密钥成功登录过新用户。
 > 3. **旧会话不关**：改 sshd 配置后，保持当前会话不断开，新开终端验证新端口 + 密钥登录成功，才允许关闭旧会话。
 
-脚本通过"前置自检 + 闸门"自行防错，但执行顺序由你保证。
+脚本会通过前置自检和闸门挡住大多数顺序错误（比如 ufw 没放行就跑 06 会直接拒绝执行），但整体顺序还是你自己掌握。
 
-## 前置（本地 / 云平台）
+## 开始之前（步骤 0：云平台基础检查）
 
+- `cat /etc/os-release` 确认发行版与版本；`nproc` / `free -h` / `df -h` 看配置
+- 云平台安全组：记录当前放行规则（第 6 步改 SSH 端口后必须同步改）
+- **创建初始 Snapshot**——整个流程唯一不可替代的一步，锁死时的救命稻草
 - 本地生成 SSH 密钥（已有则跳过）：`ssh-keygen -t ed25519`
-- 云平台创建初始 Snapshot（锁死时的救命稻草）
-- VPS 上需要 curl：Ubuntu/Debian 云镜像通常自带，没有则先 `apt install -y curl`
+- 云镜像一般自带 curl，没有就 `apt install -y curl`
 
-## 命令速查
+## 执行流程
 
-把用户名换成你的 GitHub 账号（一处替换，全部复用）：
+> 想固定版本：把命令里的 `main` 换成发布 tag。断点续跑：初始化到一半 SSH 断了，重连后从对应步骤接着跑，已完成的脚本重跑会自动跳过。
+
+**1. 系统更新**
 
 ```bash
-RAW="https://raw.githubusercontent.com/<你的GitHub用户名>/myVPS/main"
+sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-update.sh)
 ```
 
-> 想固定版本：把 `main` 换成发布 tag，如 `.../myVPS/v1`。
+做什么：`apt update` + `apt full-upgrade`，把系统补到最新。升级后若需要重启（通常是内核更新），脚本会询问，选 y 自动重启，重连后从第 2 步继续。
 
-| 步骤 | 执行方式 |
-|---|---|
-| 0. 云平台检查 | 手动（见 checklist.md 第 0 步） |
-| 1. 系统更新 | `sudo bash <(curl -sL "$RAW/01-update.sh")` |
-| 2. 基础工具 | `sudo bash <(curl -sL "$RAW/02-tools.sh")` |
-| 3. hostname / 时区 / 时间同步 | 手动，命令见下 |
-| 4. 创建管理员用户 + 公钥 | `sudo bash <(curl -sL "$RAW/04-user.sh")` |
-| — | **闸门**：新终端验证密钥登录 + `sudo -v`，通过才继续 |
-| 5. UFW | `sudo bash <(curl -sL "$RAW/05-ufw.sh")` |
-| 6. SSH 加固 | `sudo bash <(curl -sL "$RAW/06-ssh.sh")` |
-| — | **闸门**：新终端用新端口验证密钥登录；同步改云安全组（关 22、开新端口） |
-| 7. fail2ban | `sudo bash <(curl -sL "$RAW/07-fail2ban.sh")` |
-| 8. Swap | `sudo bash swap.sh`（或 `sudo bash <(curl -sL "$RAW/swap.sh")`） |
-| 9. BBR | `sudo bash <(curl -sL "$RAW/bbr.sh")`（脚本待加入仓库） |
-| 10. 自动安全更新 | 手动，命令见下 |
-| 11. Docker | 仅提示，见下 |
-| 12–13. 终检 + 归档 | `sudo bash <(curl -sL "$RAW/verify.sh")`，报告写入 `/root/vps-init-report.md` |
+**2. 基础工具**
 
-首次运行时，脚本会交互询问 SSH 端口、用户名、公钥等参数，保存到 `/root/.vps-init.conf`（600 权限，仅存在于 VPS 本地，不进仓库），后续脚本自动继承，一次输入全局复用。
+```bash
+sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/02-tools.sh)
+```
 
-### 步骤 3：系统基础配置（手动）
+做什么：装必装工具（`sudo ca-certificates curl wget gnupg ufw fail2ban unattended-upgrades vim nano unzip htop`），另问一句"还要装什么"，默认 `jq tmux lsof rsync zip`，不需要留空。诊断类工具（tcpdump/mtr/ncdu 等）用到再装，不预装。
+
+**3. 系统基础配置**（手动）
 
 ```bash
 hostnamectl set-hostname <主机名>      # 可选，保持厂商默认可跳过
@@ -56,26 +48,110 @@ timedatectl set-timezone Asia/Shanghai
 timedatectl                            # 确认 NTP service active
 ```
 
-### 步骤 10：自动安全更新（手动）
+做什么：设置主机名（可跳过）、时区，并确认系统时间同步在跑——时间不准会让 fail2ban 的封禁窗口、证书校验出问题。
+
+**4. 创建管理员用户 + 公钥**
+
+```bash
+sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-user.sh)
+```
+
+做什么：新建管理员用户并加入 sudo 组（可选手：sudo 免密，写入 `/etc/sudoers.d/`，带 `visudo -c` 双校验），把粘贴的公钥写进 `~/.ssh/authorized_keys`（权限 700/600、属主正确），公钥同时存入 conf 供重跑复用。
+
+> **闸门一**：新开终端验证 `ssh <用户名>@<host>` 密钥登录成功 + `sudo -v` 通过。**不通过，禁止执行第 5 步之后。**
+
+**5. UFW 防火墙**
+
+```bash
+sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw.sh)
+```
+
+做什么：ufw 默认拒绝入站、允许出站；放行新 SSH 端口；**临时放行 22**（第 6 步完成前旧端口还得用）；按需放行业务端口（脚本会问，逗号分隔，如 `80,443`，留空跳过）；最后 `ufw --force enable` 启用。跑完 `ufw status` 应看到新端口和 22 都在列表。
+
+**6. SSH 加固**
+
+```bash
+sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-ssh.sh)
+```
+
+做什么：写入 `/etc/ssh/sshd_config.d/01-hardening.conf`——改端口、禁 root 登录、禁密码认证（只留密钥）、`AllowUsers` 限定管理员、`MaxAuthTries 3`。01 前缀抢在云镜像 `50-cloud-init.conf` 之前拿优先权（sshd 配置先出现者优先）。写完 `sshd -t` 语法校验、`sshd -T` 验证实际生效值（防 drop-in 被覆盖）、`reload` 生效、确认新端口在监听。
+
+> **闸门二**（脚本两次停下确认）：
+> 1. 写配置前先问"04 之后验证过密钥登录吗"——答 n 直接退出，不改任何配置
+> 2. reload 后：**保持本会话不断开**，新开终端 `ssh -p <新端口> <用户名>@<host>` 验证密钥登录 + root 被拒，**同步改云平台安全组（关 22、开新端口）**，回来答 y 后脚本才移除 22 的临时放行；答 n 则保留 22 规则并打印恢复指引
+
+**7. fail2ban**
+
+```bash
+sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/07-fail2ban.sh)
+```
+
+做什么：安装 fail2ban，写 `/etc/fail2ban/jail.local`——sshd jail 监听**新端口**（不写则默认盯 22，形同虚设）、`backend = systemd`（兼容 Debian 12 无 auth.log 与 Ubuntu 24.04+）。默认激进档：封 24h / 窗口 10min / 3 次触发，脚本会问是否自定义。启用后 `fail2ban-client status sshd` 确认。
+
+**8. Swap**
+
+```bash
+sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/08-swap.sh)
+```
+
+做什么：交互式管理 swap 文件——查看现状 / 创建（写 fstab 持久化）/ 调整 swappiness / 删除，自带 fstab 备份回滚。完成后 `free -h` 与 `swapon --show` 确认。
+
+**9. BBR + TCP 调优**
+
+```bash
+sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/09-bbr.sh)
+```
+
+做什么：写入 `/etc/sysctl.d/99-bbr.conf`——开启 BBR 拥塞控制 + fq 队列，附带一组 TCP 缓冲/连接参数调优；`sysctl -p` 应用后验证 `tcp_congestion_control = bbr`。个别键若被新内核移除（如 `tcp_fack`）仅警告不中断。
+
+**10. 自动安全更新**（手动）
 
 ```bash
 apt install -y unattended-upgrades
 cat /etc/apt/apt.conf.d/20auto-upgrades   # 确认 Update/Upgrade 均为 "1"
 ```
 
-### 步骤 11：Docker（提示，不自动安装）
+做什么：启用安全补丁自动安装（Ubuntu 默认已开，Debian 需装）。VPS 不常登录，这是廉价保险。
 
-推荐从官方仓库安装：<https://docs.docker.com/engine/install/>（Debian/Ubuntu 各有指引，执行前核对官方最新写法）。
+**11. Docker**（仅提示，不自动安装）
 
-知情提醒：把用户加入 `docker` 组等价于授予 root 权限，与"禁 root 登录"的目标有冲突——个人 VPS 可接受，但要知道这个权衡。装完用 `docker run --rm hello-world` 验证。
+本轮初始化不安装 Docker。需要时后续自行安装（官方仓库安装指引见 docs.docker.com，注意核对官方最新写法；`docker` 组权限等价于 root，与禁 root 登录的目标有冲突，知情即可）。装完用 `docker run --rm hello-world` 验证。
 
-## 故障恢复
+**12–13. 终检 + 归档**
 
-- 所有脚本修改系统配置前，先备份到 `/root/vps-init-backups/<时间戳>/`
-- SSH 疑似锁死：用云平台控制台 / VNC 登录，从备份目录还原 `sshd_config.d` 相关文件后 `systemctl reload ssh`
-- 最终防线是第 0 步的 Snapshot
+```bash
+sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-verify.sh)
+```
+
+做什么：对 12 项做绿/红终检——sshd 实际生效值（端口/禁密码/禁 root）、ufw 规则（含 22 已关）、fail2ban jail、自动更新为红灯项；swap / BBR / NTP / 磁盘 / 重启标记为黄灯提示。报告 + 配置摘要（端口/用户/放行端口/fail2ban 参数）写入 `/root/vps-init-report.md`，可作归档记录。有红灯退出码 1，修复后重跑。全绿后：核对报告 → 云平台创建最终 Snapshot。
+
+## 参数只输一次
+
+SSH 端口、用户名、公钥这些参数：脚本问完会存进 `/root/.vps-init.conf`（600 权限，只在 VPS 本地，不进仓库），后面的脚本自动读取。这个文件删了也没关系，重跑脚本会重新询问。
+
+conf 全部键（维护参考）：
+
+| 键 | 写入脚本 | 含义 / 默认 |
+|---|---|---|
+| `SSH_PORT` | 05 | 新 SSH 端口（1024–65535，避开 22/2222） |
+| `ADMIN_USER` | 04 | 管理员用户名 |
+| `SSH_PUBKEY_N` | 04 | 公钥，N=1,2,…，逐行存 |
+| `ALLOWED_PORTS` | 05 | 额外放行端口，逗号分隔，默认问询后留空 |
+| `TOOLS_EXTRA` | 02 | 额外工具包，默认 `jq tmux lsof rsync zip` |
+| `SUDO_NOPASSWD` | 04 | sudo 免密开关，默认 no |
+| `F2B_BANTIME` | 07 | 封禁时长（秒），默认 86400 |
+| `F2B_FINDTIME` | 07 | 统计窗口（秒），默认 600 |
+| `F2B_MAXRETRY` | 07 | 最大重试次数，默认 3 |
+
+## 出问题怎么办
+
+- 所有脚本改系统配置前，先把原文件备份到 `/root/vps-init-backups/<时间戳>/`。脚本执行失败时会把备份路径打印出来
+- SSH 疑似锁死：用云平台控制台 / VNC 登录，从备份目录还原 `sshd_config.d` 相关文件，再 `systemctl reload ssh`
+- 以上都不行，步骤 0 的 Snapshot 是最终防线
+- 网络原因拉不到脚本：先在本地下载好，`scp` 上去再 `sudo bash 脚本名` 执行，效果一样
 
 ## 脚本约定（开发者视角）
 
-- 每个脚本自包含、幂等、中文交互；实现契约见 [docs/design.md](docs/design.md)
-- 术语表见 [CONTEXT.md](CONTEXT.md)，关键决策见 [docs/adr/](docs/adr/)
+- 每个脚本自包含（公共函数内联，不依赖仓库里其他文件）、幂等、中文交互，单独拉取即可运行
+- 修改系统配置前先备份到 `/root/vps-init-backups/<时间戳>/`，不做自动回滚
+- 术语表见 [CONTEXT.md](CONTEXT.md)，为什么没有总控脚本见 [docs/adr/0001-no-orchestrator.md](docs/adr/0001-no-orchestrator.md)

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
+# 注：本文件是 vps/swap 仓库 swap.sh 的发布拷贝（改名 08- 对齐步骤号），
+#     更新时从上游拷贝后重命名；不在本仓库直接演进逻辑。
 #
 # swap.sh - VPS Swap 交互管理脚本（Debian / Ubuntu）
 #
 # 用法:
-#   sudo bash swap.sh
+#   sudo bash 08-swap.sh
 #
 # 功能: 查看 / 创建(替换) / 调整 swappiness / 关闭并删除 swap 文件
 # 依赖: 仅系统自带工具（util-linux、coreutils、procps）
@@ -582,10 +584,10 @@ do_delete() {
 # ============ 前置检查与主菜单 ============
 
 preflight() {
-  [[ $EUID -eq 0 ]] || die "请以 root 身份运行: sudo bash swap.sh"
+  [[ $EUID -eq 0 ]] || die "请以 root 身份运行: sudo bash 08-swap.sh"
 
   # 交互脚本需要真实终端（防止 curl | bash 场景下 read 吃到管道内容）
-  [[ -t 0 ]] || die "标准输入不是终端。请先下载脚本再运行: curl -fLO <脚本地址> && sudo bash swap.sh"
+  [[ -t 0 ]] || die "标准输入不是终端。请先下载脚本再运行: curl -fLO <脚本地址> && sudo bash 08-swap.sh"
 
   local os_id=""
   if [[ -r /etc/os-release ]]; then

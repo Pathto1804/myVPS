@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # VPS 初始化 · 01 系统更新
 # 自包含 + 幂等 + 交互闸门。用法：sudo bash 01-update.sh
-# 项目：https://raw.githubusercontent.com/<user>/myVPS/main/01-update.sh
+# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-update.sh
 
 set -euo pipefail
 
-# ============ 公共内联块（各脚本一致，修改需同步全部；详见 docs/design.md §2） ============
+# ============ 公共内联块（各脚本一致，修改需同步全部） ============
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 CONF="/root/.vps-init.conf"
 BK_ROOT="/root/vps-init-backups"
@@ -157,4 +157,4 @@ else
   log "无需重启"
 fi
 
-log "checklist 第 1 步完成，可勾选"
+log "第 1 步完成"

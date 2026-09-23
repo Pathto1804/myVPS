@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # VPS 初始化 · 07 fail2ban
 # 自包含 + 幂等 + 交互闸门。用法：sudo bash 07-fail2ban.sh
-# 项目：https://raw.githubusercontent.com/<user>/myVPS/main/07-fail2ban.sh
+# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/07-fail2ban.sh
 set -euo pipefail
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
@@ -154,4 +154,4 @@ if ! fail2ban-client status sshd >/dev/null 2>&1; then
 fi
 log "fail2ban sshd jail 已启用（端口 ${SSH_PORT} / ${F2B_MAXRETRY} 次 / ${F2B_BANTIME}s）"
 fail2ban-client status sshd
-log "checklist 第 7 步完成，可勾选"
+log "第 7 步完成"

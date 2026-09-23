@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # VPS 初始化 · 02 基础工具
 # 自包含 + 幂等 + 交互闸门。用法：sudo bash 02-tools.sh
-# 项目：https://raw.githubusercontent.com/<user>/myVPS/main/02-tools.sh
+# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/02-tools.sh
 
 set -euo pipefail
 
@@ -76,4 +76,4 @@ apt-get update
 apt-get install -y ${BASE} ${TOOLS_EXTRA}
 
 log "本次安装包：${BASE} ${TOOLS_EXTRA}"
-log "checklist 第 2 步完成，可勾选"
+log "第 2 步完成"

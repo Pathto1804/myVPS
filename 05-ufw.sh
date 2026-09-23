@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # VPS 初始化 · 05 UFW 防火墙
 # 自包含 + 幂等 + 交互闸门。用法：sudo bash 05-ufw.sh
-# 项目：https://raw.githubusercontent.com/<user>/myVPS/main/05-ufw.sh
+# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw.sh
 
 set -euo pipefail
 
@@ -143,4 +143,4 @@ fi
 ufw --force enable
 log "UFW 状态："
 ufw status verbose
-log "checklist 第 5 步完成，可勾选"
+log "第 5 步完成"
