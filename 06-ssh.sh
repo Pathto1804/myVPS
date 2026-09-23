@@ -51,6 +51,15 @@ ask_input() {
   done
 }
 
+ask_input_def() {
+  local prompt="$1" v="$2" def="$3" val
+  while :; do
+    read -rp "${prompt} [回车=随机: ${def}] " val || die "输入中断"
+    val="${val:-${def}}"
+    if "${v}" "${val}"; then printf '%s' "${val}"; return 0; fi
+  done
+}
+
 backup_file() {
   local path="$1" stamp dir
   [[ -e "${path}" ]] || { printf ''; return 0; }
@@ -85,7 +94,9 @@ require_root; require_tty; require_distro
 SSH_PORT=""
 if conf_has "SSH_PORT"; then SSH_PORT="$(conf_read "SSH_PORT")"; fi
 if ! v_ssh_port "${SSH_PORT}" >/dev/null 2>&1; then
-  SSH_PORT="$(ask_input "新 SSH 端口（1024-65535，避开 22/2222）" v_ssh_port)"
+  SUGGEST="$(shuf -i 10000-65535 -n 1 2>/dev/null || echo 54321)"
+  log "随机建议端口：${SUGGEST}（回车采纳）"
+  SSH_PORT="$(ask_input_def "新 SSH 端口" v_ssh_port "${SUGGEST}")"
 fi
 ADMIN_USER=""
 if conf_has "ADMIN_USER"; then ADMIN_USER="$(conf_read "ADMIN_USER")"; fi
@@ -96,7 +107,8 @@ fi
 OLD_PORT=""
 if conf_has "OLD_SSH_PORT"; then OLD_PORT="$(conf_read "OLD_SSH_PORT")"; fi
 if ! [[ "${OLD_PORT}" =~ ^[0-9]+$ ]]; then
-  OLD_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '')"
+  OLD_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '
+')"
 fi
 [[ "${OLD_PORT}" =~ ^[0-9]+$ ]] || OLD_PORT="22"
 

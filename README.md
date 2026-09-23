@@ -64,7 +64,7 @@ timedatectl                            # 确认 NTP service active
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-user.sh)
 ```
 
-做什么：新建管理员用户并加入 sudo 组；也支持**管理已有用户**——重跑脚本可换目标用户、设置/修改登录密码（转发给 `passwd` 原生交互，脚本不经手密码）、修改 sudo 免密（含翻转：开↔关，自动处理 sudoers 文件的写入与删除）、追加或删除公钥。新建用户无密码时默认提示设置（否则 sudo 密码模式无法验证）。公钥写入 `~/.ssh/authorized_keys`（权限 700/600、属主正确），同步存入 conf 供复用。
+做什么：新建管理员用户并加入 sudo 组；也支持**管理已有用户**——重跑脚本可换目标用户、设置/修改登录密码（可选**随机生成**——显示一次请立即保存，不存 conf；或转发 `passwd` 原生交互自己输入）、修改 sudo 免密（含翻转：开↔关，自动处理 sudoers 文件的写入与删除）、追加或删除公钥。新建用户无密码时默认提示设置（否则 sudo 密码模式无法验证）。公钥写入 `~/.ssh/authorized_keys`（权限 700/600、属主正确），同步存入 conf 供复用。
 
 > **闸门一**：新开终端验证 `ssh <用户名>@<host>` 密钥登录成功 + `sudo -v` 通过。**不通过，禁止执行第 5 步之后。**
 
@@ -74,7 +74,7 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw.sh)
 ```
 
-做什么：ufw 默认拒绝入站、允许出站；放行新 SSH 端口；**临时放行当前 SSH 端口**（自动从 sshd 读取，22 或厂商随机端口均可，第 6 步完成前旧端口还得用）；按需放行业务端口（脚本会问，逗号分隔，如 `80,443`，留空跳过）；最后 `ufw --force enable` 启用。跑完 `ufw status` 应看到新端口和旧端口都在列表。
+做什么：ufw 默认拒绝入站、允许出站；放行新 SSH 端口（首次询问时**回车即用随机端口**，也可自己输入）；**临时放行当前 SSH 端口**（自动从 sshd 读取，22 或厂商随机端口均可，第 6 步完成前旧端口还得用）；按需放行业务端口（脚本会问，逗号分隔，如 `80,443`，留空跳过）；最后 `ufw --force enable` 启用。跑完 `ufw status` 应看到新端口和旧端口都在列表。
 
 **6. SSH 加固**
 
@@ -82,7 +82,7 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-ssh.sh)
 ```
 
-做什么：写入 `/etc/ssh/sshd_config.d/01-hardening.conf`——改端口、禁 root 登录、禁密码认证（只留密钥）、`AllowUsers` 限定管理员、`MaxAuthTries 3`。01 前缀抢在云镜像 `50-cloud-init.conf` 之前拿优先权（sshd 配置先出现者优先）。写完 `sshd -t` 语法校验、`sshd -T` 验证实际生效值（防 drop-in 被覆盖）、`reload` 生效、确认新端口在监听。
+做什么：写入 `/etc/ssh/sshd_config.d/01-hardening.conf`——改端口（conf 已有则沿用；05 首次已存，无需再输）、禁 root 登录、禁密码认证（只留密钥）、`AllowUsers` 限定管理员、`MaxAuthTries 3`。01 前缀抢在云镜像 `50-cloud-init.conf` 之前拿优先权（sshd 配置先出现者优先）。写完 `sshd -t` 语法校验、`sshd -T` 验证实际生效值（防 drop-in 被覆盖）、`reload` 生效、确认新端口在监听。
 
 > **闸门二**（脚本两次停下确认）：
 > 1. 写配置前先问"04 之后验证过密钥登录吗"——答 n 直接退出，不改任何配置

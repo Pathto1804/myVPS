@@ -57,7 +57,7 @@ ask_input() {
 ask_input_def() {
   local prompt="$1" v="$2" def="$3" val
   while :; do
-    read -rp "${prompt} [默认: ${def}] " val || die "输入中断"
+    read -rp "${prompt} [回车=建议: ${def}] " val || die "输入中断"
     val="${val:-${def}}"
     if "${v}" "${val}"; then printf '%s' "${val}"; return 0; fi
   done
@@ -142,7 +142,15 @@ elif ! conf_has "OLD_SSH_PORT"; then
   conf_write "OLD_SSH_PORT" "${OLD_PORT}"
 fi
 
-SSH_PORT="$(conf_get "SSH_PORT" "新 SSH 端口（1024-65535，避开 22/2222）" v_ssh_port)"
+# 端口：conf 无值时给随机建议值（回车采纳；手动输入则用输入值）
+if conf_has "SSH_PORT" && v_ssh_port "$(conf_read "SSH_PORT")" >/dev/null 2>&1; then
+  SSH_PORT="$(conf_get "SSH_PORT" "新 SSH 端口（1024-65535，避开 22/2222）" v_ssh_port)"
+else
+  SUGGEST="$(shuf -i 10000-65535 -n 1 2>/dev/null || echo 54321)"
+  log "随机建议端口：${SUGGEST}（回车采纳，或自行输入）"
+  SSH_PORT="$(ask_input_def "新 SSH 端口" v_ssh_port "${SUGGEST}")"
+  conf_write "SSH_PORT" "${SSH_PORT}"
+fi
 ALLOWED_PORTS="$(conf_get "ALLOWED_PORTS" "额外放行端口（逗号分隔，如 80,443；空留空）" v_ports_list)"
 
 log "配置 UFW：默认拒绝入站，仅放行 SSH 与业务端口"

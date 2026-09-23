@@ -170,7 +170,7 @@ fi
 usermod -aG sudo "${ADMIN_USER}"
 log "已加入 sudo 组"
 
-# ----- 登录密码：转发给 passwd 原生交互，脚本不接触、不存储密码 -----
+# ----- 登录密码：自己输入 / 生成随机 / 跳过；随机密码显示一次，不进 conf 不落盘 -----
 # passwd -S 状态：P=有可用密码 / NP=无密码 / L=锁定（adduser --gecos "" 创建的用户为 NP/L，
 # 不设密码则 sudo 密码模式无法验证）。无密码默认问；已有密码默认跳过
 PW_STATUS="$(passwd -S "${ADMIN_USER}" 2>/dev/null | awk '{print $2}')"
@@ -182,12 +182,51 @@ else
     warn "无法读取密码状态（passwd -S 失败），按无密码处理"
   fi
 fi
+
+gen_random_pw() {
+  # 22 位随机密码（大小写+数字，无易混淆字符）；openssl 不可用时退回 /dev/urandom
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-22
+  else
+    tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 22
+  fi
+}
+
+apply_random_pw() {
+  local pw
+  pw="$(gen_random_pw)"
+  printf '%s生成的密码（仅显示这一次，请立即保存到密码管理器）：%s%s%s\n' "${C_Y}" "${C_B}" "${pw}" "${C_0}"
+  printf '%s:%s\n' "${ADMIN_USER}" "${pw}" | chpasswd
+  printf '%s密码已设置\n' "${C_G}"
+  unset pw
+}
+
 if [[ "${HAS_PW}" == "1" ]]; then
   if ask_yesno "要修改 ${ADMIN_USER} 的登录密码吗？" n; then
-    passwd "${ADMIN_USER}"
+    printf '  1) 自己输入  2) 生成随机密码\n'
+    OP_PW=""
+    while :; do
+      read -rp "选择 [1-2] " OP_PW || die "输入中断"
+      [[ "${OP_PW}" == "1" || "${OP_PW}" == "2" ]] && break
+      printf '请输入 1 或 2。\n'
+    done
+    if [[ "${OP_PW}" == "2" ]]; then
+      apply_random_pw
+    else
+      passwd "${ADMIN_USER}"
+    fi
   fi
 else
-  if ask_yesno "${ADMIN_USER} 当前无可用登录密码（sudo 密码模式会卡死），现在设置吗？" y; then
+  printf '  1) 自己输入  2) 生成随机密码  3) 稍后手动设置\n'
+  OP_PW=""
+  while :; do
+    read -rp "${ADMIN_USER} 当前无登录密码（sudo 密码模式会卡死），选择设置方式 [1-3] " OP_PW || die "输入中断"
+    [[ "${OP_PW}" == "1" || "${OP_PW}" == "2" || "${OP_PW}" == "3" ]] && break
+    printf '请输入 1、2 或 3。\n'
+  done
+  if [[ "${OP_PW}" == "2" ]]; then
+    apply_random_pw
+  elif [[ "${OP_PW}" == "1" ]]; then
     passwd "${ADMIN_USER}"
   else
     warn "未设置密码：sudo 使用密码模式时该用户将无法验证，请尽快手动 passwd ${ADMIN_USER}"
