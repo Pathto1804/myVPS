@@ -15,6 +15,7 @@
 ## 开始之前（步骤 0：云平台基础检查）
 
 - `cat /etc/os-release` 确认发行版与版本；`nproc` / `free -h` / `df -h` 看配置
+- **记下当前 SSH 端口**：`sshd -T | grep ^port`——有些云厂商把 ssh 预置在随机端口上，后续步骤会自动识别，但你得知道它、并确认云安全组放行的是这个端口（第 6 步改端口后同步改）
 - 云平台安全组：记录当前放行规则（第 6 步改 SSH 端口后必须同步改）
 - **创建初始 Snapshot**——整个流程唯一不可替代的一步，锁死时的救命稻草
 - 本地生成 SSH 密钥（已有则跳过）：`ssh-keygen -t ed25519`
@@ -66,7 +67,7 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw.sh)
 ```
 
-做什么：ufw 默认拒绝入站、允许出站；放行新 SSH 端口；**临时放行 22**（第 6 步完成前旧端口还得用）；按需放行业务端口（脚本会问，逗号分隔，如 `80,443`，留空跳过）；最后 `ufw --force enable` 启用。跑完 `ufw status` 应看到新端口和 22 都在列表。
+做什么：ufw 默认拒绝入站、允许出站；放行新 SSH 端口；**临时放行当前 SSH 端口**（自动从 sshd 读取，22 或厂商随机端口均可，第 6 步完成前旧端口还得用）；按需放行业务端口（脚本会问，逗号分隔，如 `80,443`，留空跳过）；最后 `ufw --force enable` 启用。跑完 `ufw status` 应看到新端口和旧端口都在列表。
 
 **6. SSH 加固**
 
@@ -78,7 +79,7 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-
 
 > **闸门二**（脚本两次停下确认）：
 > 1. 写配置前先问"04 之后验证过密钥登录吗"——答 n 直接退出，不改任何配置
-> 2. reload 后：**保持本会话不断开**，新开终端 `ssh -p <新端口> <用户名>@<host>` 验证密钥登录 + root 被拒，**同步改云平台安全组（关 22、开新端口）**，回来答 y 后脚本才移除 22 的临时放行；答 n 则保留 22 规则并打印恢复指引
+> 2. reload 后：**保持本会话不断开**，新开终端 `ssh -p <新端口> <用户名>@<host>` 验证密钥登录 + root 被拒，**同步改云平台安全组（关旧端口、开新端口）**，回来答 y 后脚本才移除旧端口的临时放行；答 n 则保留旧端口规则并打印恢复指引
 
 **7. fail2ban**
 
@@ -123,11 +124,26 @@ cat /etc/apt/apt.conf.d/20auto-upgrades   # 确认 Update/Upgrade 均为 "1"
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-verify.sh)
 ```
 
-做什么：对 12 项做绿/红终检——sshd 实际生效值（端口/禁密码/禁 root）、ufw 规则（含 22 已关）、fail2ban jail、自动更新为红灯项；swap / BBR / NTP / 磁盘 / 重启标记为黄灯提示。报告 + 配置摘要（端口/用户/放行端口/fail2ban 参数）写入 `/root/vps-init-report.md`，可作归档记录。有红灯退出码 1，修复后重跑。全绿后：核对报告 → 云平台创建最终 Snapshot。
+做什么：对 12 项做绿/红终检——sshd 实际生效值（端口/禁密码/禁 root）、ufw 规则（含旧端口已关）、fail2ban jail、自动更新为红灯项；swap / BBR / NTP / 磁盘 / 重启标记为黄灯提示。报告 + 配置摘要（端口/用户/放行端口/fail2ban 参数）写入 `/root/vps-init-report.md`，可作归档记录。有红灯退出码 1，修复后重跑。全绿后：核对报告 → 云平台创建最终 Snapshot。
 
 ## 参数只输一次
 
 SSH 端口、用户名、公钥这些参数：脚本问完会存进 `/root/.vps-init.conf`（600 权限，只在 VPS 本地，不进仓库），后面的脚本自动读取。这个文件删了也没关系，重跑脚本会重新询问。
+
+conf 全部键（维护参考）：
+
+| 键 | 写入脚本 | 含义 / 默认 |
+|---|---|---|
+| `SSH_PORT` | 05 | 新 SSH 端口（1024–65535，避开 22/2222） |
+| `OLD_SSH_PORT` | 05 | 迁移前的旧端口（自动从 sshd 读取，兼容厂商随机端口；不假设 22） |
+| `ADMIN_USER` | 04 | 管理员用户名 |
+| `SSH_PUBKEY_N` | 04 | 公钥，N=1,2,…，逐行存 |
+| `ALLOWED_PORTS` | 05 | 额外放行端口，逗号分隔，默认问询后留空 |
+| `TOOLS_EXTRA` | 02 | 额外工具包，默认 `jq tmux lsof rsync zip` |
+| `SUDO_NOPASSWD` | 04 | sudo 免密开关，默认 no |
+| `F2B_BANTIME` | 07 | 封禁时长（秒），默认 86400 |
+| `F2B_FINDTIME` | 07 | 统计窗口（秒），默认 600 |
+| `F2B_MAXRETRY` | 07 | 最大重试次数，默认 3 |
 
 ## 出问题怎么办
 
@@ -140,4 +156,4 @@ SSH 端口、用户名、公钥这些参数：脚本问完会存进 `/root/.vps-
 
 - 每个脚本自包含（公共函数内联，不依赖仓库里其他文件）、幂等、中文交互，单独拉取即可运行
 - 修改系统配置前先备份到 `/root/vps-init-backups/<时间戳>/`，不做自动回滚
-- 实现契约见 [docs/design.md](docs/design.md)，术语表见 [CONTEXT.md](CONTEXT.md)，架构决策见 [docs/adr/](docs/adr/)
+- 术语表见 [CONTEXT.md](CONTEXT.md)，为什么没有总控脚本见 [docs/adr/0001-no-orchestrator.md](docs/adr/0001-no-orchestrator.md)

@@ -92,6 +92,13 @@ if conf_has "ADMIN_USER"; then ADMIN_USER="$(conf_read "ADMIN_USER")"; fi
 if ! v_user "${ADMIN_USER}" >/dev/null 2>&1; then
   ADMIN_USER="$(ask_input "管理员用户名" v_user)"
 fi
+# 旧端口：05 写入；conf 缺失时回退为 sshd 当前实际值（不假设 22）
+OLD_PORT=""
+if conf_has "OLD_SSH_PORT"; then OLD_PORT="$(conf_read "OLD_SSH_PORT")"; fi
+if ! [[ "${OLD_PORT}" =~ ^[0-9]+$ ]]; then
+  OLD_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '')"
+fi
+[[ "${OLD_PORT}" =~ ^[0-9]+$ ]] || OLD_PORT="22"
 
 # ---------- 前置自检 ----------
 SSHD_CFG="/etc/ssh/sshd_config"
@@ -158,20 +165,20 @@ fi
 log ""
 log "保持【本会话】不断开！请操作："
 log "  1) 新开终端：ssh -p ${SSH_PORT} ${ADMIN_USER}@<host>  —— 必须密钥登录成功且 root 被拒"
-log "  2) 同步云平台安全组：关 22、开 ${SSH_PORT}（只能你手动做）"
+log "  2) 同步云平台安全组：关 ${OLD_PORT}、开 ${SSH_PORT}（只能你手动做）"
 log ""
 
 # ---------- 闸门二：新终端验证（铁律 3）----------
 if ask_yesno "新终端已用新端口成功登录？" n; then
-  if command -v ufw >/dev/null 2>&1 && ufw status | grep -qw "22/tcp"; then
-    ufw delete allow 22/tcp
-    log "已移除 22 临时放行规则（ufw）"
+  if command -v ufw >/dev/null 2>&1 && [[ "${OLD_PORT}" != "${SSH_PORT}" ]] && ufw status | grep -qw "${OLD_PORT}/tcp"; then
+    ufw delete allow "${OLD_PORT}/tcp"
+    log "已移除 ${OLD_PORT} 临时放行规则（ufw）"
   fi
   log ""
-  log "SSH 加固完成。提醒：云安全组若仍放行 22，请手动关闭。"
+  log "SSH 加固完成。提醒：云安全组若仍放行 ${OLD_PORT}，请手动关闭。"
   log "云厂商预置用户（如 ubuntu/admin）仍存在但已被 AllowUsers 屏蔽；确认不用可手动删除。"
 else
-  warn "未确认新端口可用。当前 22 放行规则保持不动以保旧会话可回退。"
+  warn "未确认新端口可用。当前 ${OLD_PORT} 放行规则保持不动以保旧会话可回退。"
   warn "恢复指引：若已锁死，用云控制台/VNC 登录后还原 /root/vps-init-backups/ 下备份，再 systemctl reload ssh"
   exit 1
 fi

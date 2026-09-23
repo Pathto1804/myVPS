@@ -35,12 +35,13 @@ caution() { YEL=$((YEL+1)); REPORT_LINES+=("! $*"); printf '  %s!%s %s\n' "${C_Y
 
 # ---- 读取 conf（缺失则降级：只查系统状态，不询问）----
 HAS_CONF=0
-SSH_PORT=""; ADMIN_USER=""; ALLOWED_PORTS=""
+SSH_PORT=""; ADMIN_USER=""; ALLOWED_PORTS=""; OLD_PORT=""
 if [[ -f "${CONF}" ]]; then
   HAS_CONF=1
   SSH_PORT="$(sed -n "s/^SSH_PORT='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
   ADMIN_USER="$(sed -n "s/^ADMIN_USER='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
   ALLOWED_PORTS="$(sed -n "s/^ALLOWED_PORTS='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
+  OLD_PORT="$(sed -n "s/^OLD_SSH_PORT='\(.*\)'\$//p" "${CONF}" | head -n 1)"
 else
   warn "未找到 ${CONF}，降级为纯系统状态检查（conf 汇总将缺失）"
 fi
@@ -85,10 +86,16 @@ if command -v ufw >/dev/null 2>&1; then
     else
       bad "ufw 未放行当前 SSH 端口 ${ACTUAL_PORT:-?}/tcp"
     fi
-    if ufw status | grep -qw "22/tcp"; then
-      bad "ufw 仍放行 22/tcp（若已完成 06，应移除临时规则）"
+    if [[ -n "${OLD_PORT}" ]]; then
+      if [[ "${OLD_PORT}" == "${ACTUAL_PORT}" ]]; then
+        caution "旧端口 ${OLD_PORT} 与当前 SSH 端口相同（可能未做端口迁移或重复初始化）"
+      elif ufw status | grep -qw "${OLD_PORT}/tcp"; then
+        bad "ufw 仍放行旧端口 ${OLD_PORT}/tcp（若已完成 06，应移除临时规则）"
+      else
+        ok "ufw 已关闭旧端口 ${OLD_PORT}/tcp"
+      fi
     else
-      ok "ufw 已关闭 22/tcp"
+      caution "conf 缺失，无法核验旧端口关闭情况；请人工确认初始端口（如 22 或厂商随机端口）已从 ufw 与安全组移除"
     fi
   else
     bad "ufw 未启用"

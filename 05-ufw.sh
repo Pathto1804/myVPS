@@ -124,6 +124,19 @@ require_root
 require_tty
 require_distro
 
+# 旧端口：从 sshd 实际生效值读取（兼容厂商预置随机端口；不假设 22）
+OLD_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '')"
+if ! [[ "${OLD_PORT}" =~ ^[0-9]+$ ]]; then
+  die "无法读取 sshd 当前端口（sshd -T 失败），中止"
+fi
+log "sshd 当前端口：${OLD_PORT}"
+if conf_has "OLD_SSH_PORT" && [[ "$(conf_read "OLD_SSH_PORT")" != "${OLD_PORT}" ]]; then
+  warn "conf 记录的旧端口与 sshd 实际不一致，以 sshd 实际为准"
+  sed -i "s/^OLD_SSH_PORT=.*/OLD_SSH_PORT='${OLD_PORT}'/" "${CONF}"
+elif ! conf_has "OLD_SSH_PORT"; then
+  conf_write "OLD_SSH_PORT" "${OLD_PORT}"
+fi
+
 SSH_PORT="$(conf_get "SSH_PORT" "新 SSH 端口（1024-65535，避开 22/2222）" v_ssh_port)"
 ALLOWED_PORTS="$(conf_get "ALLOWED_PORTS" "额外放行端口（逗号分隔，如 80,443；空留空）" v_ports_list)"
 
@@ -131,8 +144,8 @@ log "配置 UFW：默认拒绝入站，仅放行 SSH 与业务端口"
 ufw default deny incoming
 ufw default allow outgoing
 
-# 临时放行 22（ssh：改端口前旧端口仍需可用；06-ssh.sh 闸门确认后移除）
-ufw allow 22/tcp
+# 临时放行旧端口（改端口前旧端口仍需可用；06-ssh.sh 闸门确认后移除）
+ufw allow "${OLD_PORT}/tcp"
 ufw allow "${SSH_PORT}/tcp"
 if [[ -n "${ALLOWED_PORTS}" ]]; then
   for p in ${ALLOWED_PORTS//,/ }; do
@@ -143,4 +156,5 @@ fi
 ufw --force enable
 log "UFW 状态："
 ufw status verbose
+log "提醒：${OLD_PORT} 为临时规则，06-ssh.sh 闸门确认后移除"
 log "第 5 步完成"
