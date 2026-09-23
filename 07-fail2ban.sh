@@ -74,8 +74,11 @@ backup_file() {
 conf_has()   { grep -q "^${1}=" "${CONF}" 2>/dev/null; }
 conf_read()  { sed -n "s/^${1}='\(.*\)'\$/\1/p" "${CONF}" 2>/dev/null | head -n 1; }
 conf_write() {
+  # conf 首次创建即 600（幂等：已 600 无变化）
   local k="$1" v="$2"
   v="${v//\'/\'\\\'\'}"
+  touch "${CONF}" 2>/dev/null || :
+  chmod 600 "${CONF}"
   printf "%s='%s'\n" "${k}" "${v}" >> "${CONF}"
 }
 
@@ -114,6 +117,7 @@ conf_get_def() {
       printf '%s' "${val}"; return 0
     fi
     warn "conf 中 ${key} 不合法，重新询问"
+    sed -i "/^${key}=/d" "${CONF}" 2>/dev/null || :   # 清掉非法旧行，防 head -1 永远读到坏值
   fi
   val="$(ask_input_def "${prompt}" v_posint "$3")"
   conf_write "${key}" "${val}"

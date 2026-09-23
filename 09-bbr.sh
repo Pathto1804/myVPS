@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # VPS 初始化 · 09 BBR + TCP 调优
-# 自包含 + 幂等。用法：sudo bash bbr.sh
-# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/bbr.sh
+# 自包含 + 幂等。用法：sudo bash 09-bbr.sh
+# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/09-bbr.sh
 set -euo pipefail
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
@@ -127,8 +127,8 @@ else
 fi
 
 # 应用；个别键在当前内核不存在时（如 tcp_fack 已移除）仅警告
-if ! sysctl -p "${SYSCTL_CONF}" 2>/dev/null; then
-  warn "部分键应用失败（新版内核可能已移除个别键，如 tcp_fack），逐行核对上面输出"
+if ! sysctl -p "${SYSCTL_CONF}"; then
+  warn "部分键应用失败（新版内核可能已移除个别键，如 tcp_fack），请核对上方报错行"
 fi
 
 # 验证核心项

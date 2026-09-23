@@ -76,8 +76,11 @@ backup_file() {
 conf_has()   { grep -q "^${1}=" "${CONF}" 2>/dev/null; }
 conf_read()  { sed -n "s/^${1}='\\(.*\\)'\$/\\1/p" "${CONF}" 2>/dev/null | head -n 1; }
 conf_write() {
+  # conf 首次创建即 600（幂等：已 600 无变化）
   local k="$1" v="$2"
   v="${v//\'/\'\\\'\'}"
+  touch "${CONF}" 2>/dev/null || :
+  chmod 600 "${CONF}"
   printf "%s='%s'\n" "${k}" "${v}" >> "${CONF}"
 }
 conf_get() {
@@ -90,6 +93,7 @@ conf_get() {
       return 0
     fi
     warn "conf 中 ${k} 不合法，重新询问"
+    sed -i "/^${k}=/d" "${CONF}" 2>/dev/null || :   # 清掉所有同名旧行（含非法值），防 head -1 永远读到坏值
   fi
   val="$(ask_input "${prompt}" "${v}")"
   conf_write "${k}" "${val}"
@@ -125,7 +129,8 @@ require_tty
 require_distro
 
 # 旧端口：从 sshd 实际生效值读取（兼容厂商预置随机端口；不假设 22）
-OLD_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '')"
+OLD_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '
+')"
 if ! [[ "${OLD_PORT}" =~ ^[0-9]+$ ]]; then
   die "无法读取 sshd 当前端口（sshd -T 失败），中止"
 fi

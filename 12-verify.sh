@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # VPS 初始化 · verify 终检 + 归档
-# 自包含 + 只读检查。用法：sudo bash verify.sh
-# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/verify.sh
+# 自包含 + 只读检查。用法：sudo bash 12-verify.sh
+# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-verify.sh
 set -euo pipefail
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
@@ -41,7 +41,7 @@ if [[ -f "${CONF}" ]]; then
   SSH_PORT="$(sed -n "s/^SSH_PORT='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
   ADMIN_USER="$(sed -n "s/^ADMIN_USER='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
   ALLOWED_PORTS="$(sed -n "s/^ALLOWED_PORTS='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
-  OLD_PORT="$(sed -n "s/^OLD_SSH_PORT='\(.*\)'\$//p" "${CONF}" | head -n 1)"
+  OLD_PORT="$(sed -n "s/^OLD_SSH_PORT='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
 else
   warn "未找到 ${CONF}，降级为纯系统状态检查（conf 汇总将缺失）"
 fi

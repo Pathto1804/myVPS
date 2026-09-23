@@ -44,8 +44,11 @@ ask_input_def() {
 conf_has()   { grep -q "^${1}=" "${CONF}" 2>/dev/null; }
 conf_read()  { sed -n "s/^${1}='\\(.*\\)'\$/\\1/p" "${CONF}" 2>/dev/null | head -n 1; }
 conf_write() {
+  # conf 首次创建即 600（幂等：已 600 无变化）
   local k="$1" v="$2"
   v="${v//\'/\'\\\'\'}"
+  touch "${CONF}" 2>/dev/null || :
+  chmod 600 "${CONF}"
   printf "%s='%s'\n" "${k}" "${v}" >> "${CONF}"
 }
 
