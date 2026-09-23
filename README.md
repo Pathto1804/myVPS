@@ -2,7 +2,7 @@
 
 新拿到一台 Debian / Ubuntu VPS 后要做的安全初始化。每个脚本自包含（单文件从 GitHub 拉下来就能跑）、幂等（重复执行自动跳过已完成项）、中文交互，危险操作前停下来让你确认。
 
-本页是唯一操作手册：流程、命令、检查点都在这里，按步骤顺序执行。
+本页是唯一操作手册：流程、命令、检查点都在这里，按步骤顺序执行。不想用脚本、想逐条命令手动完成的，看[手动教程](docs/tutorial.md)——步骤编号与本页一一对应。
 
 ## 三条铁律
 
@@ -104,6 +104,8 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/09-
 ```
 
 做什么：写入 `/etc/sysctl.d/99-bbr.conf`——开启 BBR 拥塞控制 + fq 队列，附带一组 TCP 缓冲/连接参数调优；`sysctl -p` 应用后验证 `tcp_congestion_control = bbr`。个别键若被新内核移除（如 `tcp_fack`）仅警告不中断。
+
+> 注意：仓库里的 `09-bbr.sh` 参数是根据我自己的 VPS（线路、内存、用途）特调的，**不一定适合你的机器**。想要匹配自己 VPS 的脚本，请去 <https://omnitt.com> 获取专属调参配置。
 
 **10. 自动安全更新**（手动）
 
