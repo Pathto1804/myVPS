@@ -91,6 +91,22 @@ conf_get() {
   printf '%s' "${val}"
 }
 
+conf_update() {
+  # conf_update <KEY> <值>：已存在则替换该行，否则追加
+  # 值经 sed 转义（\ & | 分隔符），防止注入破坏 sed 表达式
+  local k="$1" v="$2"
+  local esc
+  esc="${v//\\/\\\\}"
+  esc="${esc//|/\\|}"
+  esc="${esc//&/\\&}"
+  if conf_has "${k}"; then
+    sed -i "s|^${k}=.*|${k}='${esc}'|" "${CONF}"
+  else
+    conf_write "${k}" "${v}"
+  fi
+}
+
+# 公共校验器：合法返回 0，非法打印原因返回 1
 v_any()   { return 0; }
 v_yesno() { [[ "$1" == "yes" || "$1" == "no" ]] || { printf '须为 yes 或 no\n' >&2; return 1; }; }
 v_user() {
@@ -112,11 +128,37 @@ require_root
 require_tty
 require_distro
 
-ADMIN_USER="$(conf_get "ADMIN_USER" "管理员用户名" v_user)"
+# 列出系统普通用户（UID>=1000 且有可用 shell），仅作换人时的参考提示
+list_human_users() {
+  local u uid shell
+  while IFS=: read -r u _ uid _ _ _ shell; do
+    [[ "${uid}" -ge 1000 ]] || continue
+    [[ "${shell}" == */nologin || "${shell}" == */false ]] && continue
+    [[ "${u}" != "${ADMIN_USER}" ]] && printf '%s ' "${u}"
+  done < <(getent passwd)
+}
 
-# 用户可能已被供应商预置，也可能需要新建；两条路径后都确保在 sudo 组 + 有主目录
+# 选择目标用户：conf 有值时允许确认或换人（支持管理任意已有用户）
+ADMIN_USER=""
+if conf_has "ADMIN_USER"; then ADMIN_USER="$(conf_read "ADMIN_USER")"; fi
+if v_user "${ADMIN_USER}" >/dev/null 2>&1; then
+  if ask_yesno "管理用户 ${ADMIN_USER}（上次操作的用户）？" y; then
+    :
+  else
+    printf '系统现有普通用户：%b\n' "$(list_human_users 2>/dev/null || true)"
+    ADMIN_USER="$(ask_input "要管理的用户名（新建或已有均可）" v_user)"
+    conf_update "ADMIN_USER" "${ADMIN_USER}"
+    log "ADMIN_USER 已更新为 ${ADMIN_USER}"
+    warn "注意：sudo 免密与公钥在 conf 中是全局键，切换用户后请核对下面显示的当前值再决定是否修改"
+  fi
+else
+  ADMIN_USER="$(ask_input "要管理的用户名（新建或已有均可）" v_user)"
+  conf_update "ADMIN_USER" "${ADMIN_USER}"
+fi
+
+# 不存在则创建；已存在则直接管理（补 sudo 组、公钥、sudo 策略）
 if id "${ADMIN_USER}" &>/dev/null; then
-  log "用户 ${ADMIN_USER} 已存在，跳过创建"
+  log "用户 ${ADMIN_USER} 已存在，进入管理模式（可修改其 sudo 策略与公钥）"
 else
   log "创建用户 ${ADMIN_USER}"
   adduser --gecos "" "${ADMIN_USER}"
@@ -124,25 +166,70 @@ fi
 usermod -aG sudo "${ADMIN_USER}"
 log "已加入 sudo 组"
 
+# ----- 登录密码：转发给 passwd 原生交互，脚本不接触、不存储密码 -----
+# passwd -S 状态：P=有可用密码 / NP=无密码 / L=锁定（adduser --gecos "" 创建的用户为 NP/L，
+# 不设密码则 sudo 密码模式无法验证）。无密码默认问；已有密码默认跳过
+PW_STATUS="$(passwd -S "${ADMIN_USER}" 2>/dev/null | awk '{print $2}')"
+if [[ "${PW_STATUS}" == "P" ]]; then
+  HAS_PW=1
+else
+  HAS_PW=0
+  if [[ -z "${PW_STATUS}" ]]; then
+    warn "无法读取密码状态（passwd -S 失败），按无密码处理"
+  fi
+fi
+if [[ "${HAS_PW}" == "1" ]]; then
+  if ask_yesno "要修改 ${ADMIN_USER} 的登录密码吗？" n; then
+    passwd "${ADMIN_USER}"
+  fi
+else
+  if ask_yesno "${ADMIN_USER} 当前无可用登录密码（sudo 密码模式会卡死），现在设置吗？" y; then
+    passwd "${ADMIN_USER}"
+  else
+    warn "未设置密码：sudo 使用密码模式时该用户将无法验证，请尽快手动 passwd ${ADMIN_USER}"
+  fi
+fi
+
 HOME_DIR="$(getent passwd "${ADMIN_USER}" | cut -d: -f6)"
 [[ -n "${HOME_DIR}" ]] || die "无法解析 ${ADMIN_USER} 主目录"
 log "主目录：${HOME_DIR}"
 
-# ----- sudo 策略 -----
-SUDO_NOPASSWD="$(conf_get "SUDO_NOPASSWD" "sudo 免密？(no=需密码 / yes=免密)" v_yesno)"
-if [[ "${SUDO_NOPASSWD}" == "yes" ]]; then
-  SUDOERS_FILE="/etc/sudoers.d/${ADMIN_USER}"
-  backup_file "${SUDOERS_FILE}" >/dev/null
-  printf '%s ALL=(ALL) NOPASSWD: ALL\n' "${ADMIN_USER}" > "${SUDOERS_FILE}"
-  chmod 0440 "${SUDOERS_FILE}"
-  chown root:root "${SUDOERS_FILE}"
-  if ! visudo -c >/dev/null 2>&1; then
-    rm -f "${SUDOERS_FILE}"
-    die "sudoers 校验失败，已删除 ${SUDOERS_FILE}；请勿破坏 sudo"
-  fi
-  log "已写入 NOPASSWD 规则：${SUDOERS_FILE}"
+# ----- sudo 策略：可查看/修改/翻转（对新建和已有用户行为一致）-----
+SUDOERS_FILE="/etc/sudoers.d/${ADMIN_USER}"
+CONF_NOPW=""
+if conf_has "SUDO_NOPASSWD"; then CONF_NOPW="$(conf_read "SUDO_NOPASSWD")"; fi
+[[ "${CONF_NOPW}" == "yes" || "${CONF_NOPW}" == "no" ]] || CONF_NOPW=""
+if [[ -f "${SUDOERS_FILE}" ]]; then
+  SYS_STATE="yes（sudoers 文件存在）"
 else
-  log "sudo 使用密码（默认）"
+  SYS_STATE="no（无 sudoers 文件）"
+fi
+log "sudo 免密当前状态：conf=${CONF_NOPW:-未配置} / 系统：${SYS_STATE}"
+if ask_yesno "要修改 ${ADMIN_USER} 的 sudo 免密设置吗？" n; then
+  SUDO_NOPASSWD="$(ask_input "sudo 免密？(no=需密码 / yes=免密)" v_yesno)"
+  conf_update "SUDO_NOPASSWD" "${SUDO_NOPASSWD}"
+  if [[ "${SUDO_NOPASSWD}" == "yes" ]]; then
+    backup_file "${SUDOERS_FILE}" >/dev/null
+    printf '%s ALL=(ALL) NOPASSWD: ALL\n' "${ADMIN_USER}" > "${SUDOERS_FILE}"
+    chmod 0440 "${SUDOERS_FILE}"
+    chown root:root "${SUDOERS_FILE}"
+    if ! visudo -c >/dev/null 2>&1; then
+      rm -f "${SUDOERS_FILE}"
+      die "sudoers 校验失败，已删除 ${SUDOERS_FILE}；请勿破坏 sudo"
+    fi
+    log "已写入 NOPASSWD 规则：${SUDOERS_FILE}"
+  else
+    if [[ -f "${SUDOERS_FILE}" ]]; then
+      backup_file "${SUDOERS_FILE}" >/dev/null
+      rm -f "${SUDOERS_FILE}"
+      if ! visudo -c >/dev/null 2>&1; then
+        die "删除后 sudoers 校验失败，请立即检查 /etc/sudoers.d/"
+      fi
+      log "已移除 NOPASSWD 规则（sudo 恢复密码验证）"
+    else
+      log "sudo 使用密码（无 sudoers 文件，无需改动）"
+    fi
+  fi
 fi
 
 # ----- SSH 公钥 -----
@@ -161,20 +248,54 @@ load_pubkeys_from_conf() {
 }
 load_pubkeys_from_conf
 
-if [[ "${#PUBKEYS[@]}" -eq 0 ]]; then
-  log "conf 未配置公钥，开始交互粘贴"
-  if ask_yesno "现在粘贴 ${ADMIN_USER} 的 SSH 公钥吗？" y; then
-    RAW=""
+# 公钥管理：显示现状，默认跳过；可追加 / 删除（新建和已有用户行为一致）
+log "公钥现状：conf 已配置 ${#PUBKEYS[@]} 个"
+if ask_yesno "要修改 ${ADMIN_USER} 的公钥吗？（追加或删除）" n; then
+  printf '  1) 追加公钥  2) 删除公钥  3) 返回\n'
+  OP=""
+  while :; do
+    read -rp "选择操作 [1-3] " OP || die "输入中断"
+    [[ "${OP}" == "1" || "${OP}" == "2" || "${OP}" == "3" ]] && break
+    printf '请输入 1、2 或 3。\n'
+  done
+  if [[ "${OP}" == "1" ]]; then
     printf '粘贴公钥（每行一个，输入空行结束）：\n'
+    RAW=""
     while IFS= read -r line; do
       [[ -z "${line}" ]] && break
       RAW+="${line}"$'\n'
     done
-  else
-    log "跳过公钥配置（之后可重跑本脚本）"
+  elif [[ "${OP}" == "2" ]]; then
+    if [[ "${#PUBKEYS[@]}" -eq 0 ]]; then
+      log "conf 中没有可删除的公钥"
+    else
+      printf '当前已配置的公钥：\n'
+      i=1
+      for k in "${PUBKEYS[@]}"; do
+        printf '  %d) %s...%s\n' "${i}" "${k:0:24}" "${k: -12}"
+        i=$((i + 1))
+      done
+      PICK=""
+      while :; do
+        read -rp "删除第几把？[1-${#PUBKEYS[@]}]（回车取消） " PICK || die "输入中断"
+        [[ -z "${PICK}" ]] && break
+        [[ "${PICK}" =~ ^[0-9]+$ ]] && (( PICK >= 1 && PICK <= ${#PUBKEYS[@]} )) && break
+        printf '输入超出范围，重填。\n'
+      done
+      if [[ -n "${PICK:-}" ]]; then
+        DEL_KEY="${PUBKEYS[$((PICK - 1))]}"
+        printf '将删除：%s\n' "${DEL_KEY}"
+        if ask_yesno "确认删除这把公钥？" n; then
+          declare -a TMP=()
+          for k in "${PUBKEYS[@]}"; do
+            [[ "${k}" == "${DEL_KEY}" ]] || TMP+=("${k}")
+          done
+          PUBKEYS=("${TMP[@]}")
+          log "已从配置中移除该公钥（authorized_keys 稍后统一重写）"
+        fi
+      fi
+    fi
   fi
-else
-  log "conf 已有 ${#PUBKEYS[@]} 个公钥，无需手动粘贴"
 fi
 
 # 解析用户粘贴的多行公钥，过滤非空且合法者
@@ -207,17 +328,21 @@ for k in "${PUBKEYS[@]}"; do
   idx=$((idx + 1))
 done
 
-# 写 authorized_keys（追加而非覆盖：保留既有键，仅补缺失）
+# 写 authorized_keys：按 conf 现值全量重写（追加与删除统一生效）
 SSH_DIR="${HOME_DIR}/.ssh"
 mkdir -p "${SSH_DIR}"
 chmod 700 "${SSH_DIR}"
 AK="${SSH_DIR}/authorized_keys"
 OWNER_GID="$(id -g "${ADMIN_USER}")"
-# 以目标属主/权限创建（不存在时），消除 root:root 644 中间态
-[[ -e "${AK}" ]] || install -m 600 -o "${ADMIN_USER}" -g "${OWNER_GID}" /dev/null "${AK}"
+AK_TMP="${AK}.tmp.$$"
+install -m 600 -o "${ADMIN_USER}" -g "${OWNER_GID}" /dev/null "${AK_TMP}"
+if [[ -f "${AK}" ]]; then
+  backup_file "${AK}" >/dev/null
+fi
 for k in "${PUBKEYS[@]}"; do
-  grep -qFx -- "${k}" "${AK}" 2>/dev/null || printf '%s\n' "${k}" >> "${AK}"
+  grep -qFx -- "${k}" "${AK}" 2>/dev/null && printf '%s\n' "${k}" >> "${AK_TMP}"
 done
+mv "${AK_TMP}" "${AK}"
 chown "${ADMIN_USER}:${OWNER_GID}" "${SSH_DIR}" "${AK}"
 chmod 700 "${SSH_DIR}"; chmod 600 "${AK}"
 log "authorized_keys 已更新：${#PUBKEYS[@]} 个公钥"

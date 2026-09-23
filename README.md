@@ -64,7 +64,7 @@ timedatectl                            # 确认 NTP service active
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-user.sh)
 ```
 
-做什么：新建管理员用户并加入 sudo 组（可选手：sudo 免密，写入 `/etc/sudoers.d/`，带 `visudo -c` 双校验），把粘贴的公钥写进 `~/.ssh/authorized_keys`（权限 700/600、属主正确），公钥同时存入 conf 供重跑复用。
+做什么：新建管理员用户并加入 sudo 组；也支持**管理已有用户**——重跑脚本可换目标用户、设置/修改登录密码（转发给 `passwd` 原生交互，脚本不经手密码）、修改 sudo 免密（含翻转：开↔关，自动处理 sudoers 文件的写入与删除）、追加或删除公钥。新建用户无密码时默认提示设置（否则 sudo 密码模式无法验证）。公钥写入 `~/.ssh/authorized_keys`（权限 700/600、属主正确），同步存入 conf 供复用。
 
 > **闸门一**：新开终端验证 `ssh <用户名>@<host>` 密钥登录成功 + `sudo -v` 通过。**不通过，禁止执行第 5 步之后。**
 
