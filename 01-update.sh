@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-# ============ 公共内联块（各脚本一致，修改需同步全部） ============
+# ============ 公共内联块（各脚本一致，修改需同步全部；详见 docs/design.md §2） ============
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 CONF="/root/.vps-init.conf"
 BK_ROOT="/root/vps-init-backups"

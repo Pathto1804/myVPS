@@ -129,20 +129,6 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-
 
 SSH 端口、用户名、公钥这些参数：脚本问完会存进 `/root/.vps-init.conf`（600 权限，只在 VPS 本地，不进仓库），后面的脚本自动读取。这个文件删了也没关系，重跑脚本会重新询问。
 
-conf 全部键（维护参考）：
-
-| 键 | 写入脚本 | 含义 / 默认 |
-|---|---|---|
-| `SSH_PORT` | 05 | 新 SSH 端口（1024–65535，避开 22/2222） |
-| `ADMIN_USER` | 04 | 管理员用户名 |
-| `SSH_PUBKEY_N` | 04 | 公钥，N=1,2,…，逐行存 |
-| `ALLOWED_PORTS` | 05 | 额外放行端口，逗号分隔，默认问询后留空 |
-| `TOOLS_EXTRA` | 02 | 额外工具包，默认 `jq tmux lsof rsync zip` |
-| `SUDO_NOPASSWD` | 04 | sudo 免密开关，默认 no |
-| `F2B_BANTIME` | 07 | 封禁时长（秒），默认 86400 |
-| `F2B_FINDTIME` | 07 | 统计窗口（秒），默认 600 |
-| `F2B_MAXRETRY` | 07 | 最大重试次数，默认 3 |
-
 ## 出问题怎么办
 
 - 所有脚本改系统配置前，先把原文件备份到 `/root/vps-init-backups/<时间戳>/`。脚本执行失败时会把备份路径打印出来
@@ -154,4 +140,4 @@ conf 全部键（维护参考）：
 
 - 每个脚本自包含（公共函数内联，不依赖仓库里其他文件）、幂等、中文交互，单独拉取即可运行
 - 修改系统配置前先备份到 `/root/vps-init-backups/<时间戳>/`，不做自动回滚
-- 术语表见 [CONTEXT.md](CONTEXT.md)，为什么没有总控脚本见 [docs/adr/0001-no-orchestrator.md](docs/adr/0001-no-orchestrator.md)
+- 实现契约见 [docs/design.md](docs/design.md)，术语表见 [CONTEXT.md](CONTEXT.md)，架构决策见 [docs/adr/](docs/adr/)
