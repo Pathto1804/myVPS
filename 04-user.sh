@@ -111,8 +111,8 @@ conf_update() {
 }
 
 # 公共校验器：合法返回 0，非法打印原因返回 1
-v_any()   { return 0; }
-v_yesno() { [[ "$1" == "yes" || "$1" == "no" ]] || { printf '须为 yes 或 no\n' >&2; return 1; }; }
+v_any()      { return 0; }
+v_yesno()    { [[ "$1" == "yes" || "$1" == "no" ]] || { printf '须为 yes 或 no\n' >&2; return 1; }; }
 v_user() {
   [[ "$1" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || { printf '用户名不合法（小写字母开头，允许 a-z 0-9 _ -）\n' >&2; return 1; }
   return 0
@@ -125,6 +125,7 @@ v_pubkey() {
   done <<< "$1"
   return 0
 }
+
 
 # ==================== 脚本主体 ====================
 

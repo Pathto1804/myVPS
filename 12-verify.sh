@@ -19,11 +19,11 @@ warn() { printf '%s[%s]%s %s\n' "${C_Y}" "${SCRIPT_NAME}" "${C_0}" "$*" >&2; }
 die()  { printf '%s[%s]%s %s\n' "${C_R}" "${SCRIPT_NAME}" "${C_0}" "$*" >&2; exit 1; }
 err_trap() { die "行 ${1}: ${2}"; }
 trap 'err_trap "${LINENO}" "${BASH_COMMAND}"' ERR
-require_root() { [[ "${EUID}" -eq 0 ]] || die "需要 root 运行，请用：sudo bash ${SCRIPT_NAME}"; }
+require_root()   { [[ "${EUID}" -eq 0 ]] || die "需要 root 运行，请用：sudo bash ${SCRIPT_NAME}"; }
 require_distro() {
   local id
   id="$(. /etc/os-release 2>/dev/null && printf '%s' "${ID:-}")"
-  [[ "${id}" == "debian" || "${id}" == "ubuntu" ]] || die "仅支持 Debian/Ubuntu，当前为 ${id:-未知}"
+  [[ "${id}" == "debian" || "${id}" == "ubuntu" ]] || die "仅支持 Debian/Ubuntu，当前发行版：${id:-未知}"
 }
 
 # 结果统计与收集

@@ -55,6 +55,7 @@ ask_input() {
   done
 }
 ask_input_def() {
+  # ask_input_def <提示> <校验函数名> <默认值>——空输入取默认值
   local prompt="$1" v="$2" def="$3" val
   while :; do
     read -rp "${prompt} [回车=建议: ${def}] " val || die "输入中断"
@@ -104,20 +105,21 @@ conf_get() {
 v_any()      { return 0; }
 v_yesno()    { [[ "$1" == "yes" || "$1" == "no" ]] || { printf '须为 yes 或 no\n' >&2; return 1; }; }
 v_ssh_port() {
-  [[ "$1" =~ ^[0-9]+$ ]] || { printf '端口须为数字\n' >&2; return 1; }
-  (( $1 >= 1024 && $1 <= 65535 )) || { printf '端口需在 1024–65535\n' >&2; return 1; }
-  [[ "$1" != "22" && "$1" != "2222" ]] || { printf '避开常用端口 22/2222\n' >&2; return 1; }
+  local p="$1"
+  [[ "${p}" =~ ^[0-9]+$ ]]           || { printf '端口须为数字\n' >&2; return 1; }
+  (( p >= 1024 && p <= 65535 ))      || { printf '端口需在 1024-65535\n' >&2; return 1; }
+  [[ "${p}" != "22" && "${p}" != "2222" ]] || { printf '避开常用端口 22/2222\n' >&2; return 1; }
   return 0
 }
 v_user() {
-  [[ "$1" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || { printf '用户名不合法\n' >&2; return 1; }
+  [[ "$1" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || { printf '用户名不合法（小写字母开头，允许 a-z 0-9 _ -）\n' >&2; return 1; }
   return 0
 }
 v_ports_list() {
-  local p
-  [[ -z "$1" ]] && return 0
-  for p in ${1//,/ }; do
-    [[ "$p" =~ ^[0-9]+$ ]] && (( p >= 1 && p <= 65535 )) || { printf '端口列表含非法项：%s\n' "$p" >&2; return 1; }
+  local s="$1" p
+  [[ -z "${s}" ]] && return 0
+  for p in ${s//,/ }; do
+    [[ "${p}" =~ ^[0-9]+$ ]] && (( p >= 1 && p <= 65535 )) || { printf '端口列表含非法项：%s\n' "${p}" >&2; return 1; }
   done
   return 0
 }

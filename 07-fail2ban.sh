@@ -20,11 +20,11 @@ err_trap() { die "行 ${1}: ${2}"; }
 trap 'err_trap "${LINENO}" "${BASH_COMMAND}"' ERR
 
 require_root()   { [[ "${EUID}" -eq 0 ]] || die "需要 root 运行，请用：sudo bash ${SCRIPT_NAME}"; }
-require_tty()    { [[ -t 0 ]] || die "需要交互终端，不支持无人值守（防锁死设计）"; }
+require_tty()    { [[ -t 0 ]] || die "需要交互终端运行，不支持无人值守（防锁死设计）"; }
 require_distro() {
   local id
   id="$(. /etc/os-release 2>/dev/null && printf '%s' "${ID:-}")"
-  [[ "${id}" == "debian" || "${id}" == "ubuntu" ]] || die "仅支持 Debian/Ubuntu，当前为 ${id:-未知}"
+  [[ "${id}" == "debian" || "${id}" == "ubuntu" ]] || die "仅支持 Debian/Ubuntu，当前发行版：${id:-未知}"
 }
 
 ask_yesno() {
@@ -52,9 +52,10 @@ ask_input() {
   done
 }
 ask_input_def() {
+  # ask_input_def <提示> <校验函数名> <默认值>——空输入取默认值
   local prompt="$1" v="$2" def="$3" val
   while :; do
-    read -rp "${prompt} [默认: ${def}] " val || die "输入中断"
+    read -rp "${prompt} [回车=建议: ${def}] " val || die "输入中断"
     val="${val:-${def}}"
     if "${v}" "${val}"; then printf '%s' "${val}"; return 0; fi
   done
@@ -64,7 +65,7 @@ backup_file() {
   local path="$1" stamp dir
   [[ -e "${path}" ]] || { printf ''; return 0; }
   stamp="$(date +%Y%m%d-%H%M%S)"
-  dir="/root/vps-init-backups/${stamp}"
+  dir="${BK_ROOT}/${stamp}"
   mkdir -p "${dir}"
   cp -a "${path}" "${dir}/"
   printf '%s已备份 %s -> %s/\n' "${C_G}" "${path}" "${dir}" >&2
@@ -72,7 +73,7 @@ backup_file() {
 }
 
 conf_has()   { grep -q "^${1}=" "${CONF}" 2>/dev/null; }
-conf_read()  { sed -n "s/^${1}='\(.*\)'\$/\1/p" "${CONF}" 2>/dev/null | head -n 1; }
+conf_read()  { sed -n "s/^${1}='\\(.*\\)'\$/\\1/p" "${CONF}" 2>/dev/null | head -n 1; }
 conf_write() {
   # conf 首次创建即 600（幂等：已 600 无变化）
   local k="$1" v="$2"
@@ -84,8 +85,8 @@ conf_write() {
 
 v_ssh_port() {
   local p="$1"
-  [[ "${p}" =~ ^[0-9]+$ ]]      || { printf '端口须为数字\n' >&2; return 1; }
-  (( p >= 1024 && p <= 65535 )) || { printf '端口需在 1024-65535\n' >&2; return 1; }
+  [[ "${p}" =~ ^[0-9]+$ ]]           || { printf '端口须为数字\n' >&2; return 1; }
+  (( p >= 1024 && p <= 65535 ))      || { printf '端口需在 1024-65535\n' >&2; return 1; }
   [[ "${p}" != "22" && "${p}" != "2222" ]] || { printf '避开常用端口 22/2222\n' >&2; return 1; }
   return 0
 }

@@ -173,4 +173,5 @@ conf 全部键（维护参考）：
 
 - 每个脚本自包含（公共函数内联，不依赖仓库里其他文件）、幂等、中文交互，单独拉取即可运行
 - 修改系统配置前先备份到 `/root/vps-init-backups/<时间戳>/`，不做自动回滚
+- 公共函数在脚本间保持一致；改动后运行 `bash tools/sync_check.sh` 自查（输出「一致性 OK」才算通过）
 - 术语表见 [CONTEXT.md](CONTEXT.md)，为什么没有总控脚本见 [docs/adr/0001-no-orchestrator.md](docs/adr/0001-no-orchestrator.md)

@@ -33,9 +33,10 @@ require_distro() {
 }
 
 ask_input_def() {
+  # ask_input_def <提示> <校验函数名> <默认值>——空输入取默认值
   local prompt="$1" v="$2" def="$3" val
   while :; do
-    read -rp "${prompt} [默认: ${def}] " val || die "输入中断"
+    read -rp "${prompt} [回车=建议: ${def}] " val || die "输入中断"
     val="${val:-${def}}"
     if "${v}" "${val}"; then printf '%s' "${val}"; return 0; fi
   done
@@ -52,7 +53,7 @@ conf_write() {
   printf "%s='%s'\n" "${k}" "${v}" >> "${CONF}"
 }
 
-v_any() { return 0; }
+v_any()      { return 0; }
 
 # TOOLS_EXTRA 有默认值，读不到则询问（空输入取默认）
 TOOLS_EXTRA=""
