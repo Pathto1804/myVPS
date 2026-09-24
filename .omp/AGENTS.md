@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件是 omp 的项目上下文（native provider 路径 `.omp/AGENTS.md`，会话启动时自动注入），供在本仓库工作的 AI 编码代理遵循。仓库无 Claude Code 专属配置；如需工具级开关，放在 `.omp/config.yml`。
 
 ## 项目是什么
 
