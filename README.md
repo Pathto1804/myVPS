@@ -42,36 +42,26 @@
 
 > 想固定版本：把命令里的 `main` 换成发布 tag。断点续跑：初始化到一半 SSH 断了，重连后从对应步骤接着跑，已完成的脚本重跑会自动跳过。
 
-> **国内服务器拉不动 GitHub**（卡住、Connection reset、几十 KB/s）：在原始 URL 前加一层第三方加速前缀即可，后面步骤的命令同理。可选前缀（2026-09-25 逐个实测，返回的都是脚本原文）：
+> **国内服务器拉不动 GitHub**（卡住、Connection reset、几十 KB/s）：下面每条命令都附了一行**加速版**，就是在原始 URL 前加一层第三方加速前缀（默认用 `ghproxy.net`）。可用前缀不止一个，挂了/返回旧版就换下一个（2026-09-26 逐个实测，返回的都是脚本原文）：
 >
 > ```text
+> https://ghproxy.net/
 > https://ghfast.top/
 > https://gh-proxy.com/
-> https://ghproxy.net/
 > https://gh.llkk.cc/
 > https://gh.ddlc.top/
 > ```
 >
-> 拼法 = 前缀 + 原始 URL，例如第 1 步：
+> 也可整段换成 jsDelivr CDN：把 `https://raw.githubusercontent.com/Pathto1804/myVPS/main/` 换成 `https://cdn.jsdelivr.net/gh/Pathto1804/myVPS@main/`（按分支取有缓存约 12h，要准就用 tag）。
 >
-> ```bash
-> sudo bash <(curl -sL https://ghfast.top/https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-update.sh)
-> ```
->
-> 也可以整段换成 jsDelivr CDN（`cdn.` / `fastly.` / `gcore.` / `testingcf.` 任一域名都行）：
->
-> ```bash
-> sudo bash <(curl -sL https://cdn.jsdelivr.net/gh/Pathto1804/myVPS@main/01-update.sh)
-> ```
->
-> 注意 CDN 按分支取有缓存（约 12 小时），可能拿到旧版，要准就用 tag。这些前缀时好时坏、随时可能挂——列表里第一个不行就换下一个，全不行就走下面「本机下载 + scp」那条。
->
-> **加速站是第三方，脚本内容经它中转——等于让陌生人过一遍即将以 root 执行的代码**。在意就别用：改成「本机 `curl` 下载 → `scp` 上传到 VPS → `sudo bash 文件名`」最稳且不经第三方。无论哪条路，按开头免责声明的要求先自己读一遍再执行。
+> 两点提醒：**加速站是第三方**，脚本内容经它中转，在意就本机 `curl` 下载 → `scp` 上传 → `sudo bash 文件名`；**缓存滞后哪家都有**——刚推送的改动可能几分钟后才在代理上生效，重要脚本拉下来先 `bash -n` 或读一遍再用。按开头免责声明的要求，无论哪条路，执行前先读一遍。
 
 **1. 系统更新**
 
 ```bash
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-update.sh)
+# 国内拉不动 → 加速版：
+sudo bash <(curl -sL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-update.sh)
 ```
 
 做什么：`apt update` + `apt full-upgrade`，把系统补到最新。升级后若需要重启（通常是内核更新），脚本会询问，选 y 自动重启，重连后从第 2 步继续。
@@ -80,6 +70,8 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-
 
 ```bash
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/02-tools.sh)
+# 国内拉不动 → 加速版：
+sudo bash <(curl -sL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/02-tools.sh)
 ```
 
 做什么：装必要项 + 常用实用工具（`sudo ca-certificates curl wget gnupg ufw fail2ban unattended-upgrades vim nano unzip htop needrestart ncdu mtr-tiny bind9-dnsutils`），另问一句"还要装什么"，默认 `jq tmux lsof rsync zip`，不需要留空。其中 `needrestart` 补上自动更新后重启受影响服务这一环（缺它则 libc/openssl 补丁装了不生效）——装完之后在有终端的 apt 里（含第 10 步的 docker 一键脚本）会多问一句要重启哪些服务，答 `i` 立即重启、`l` 只看清单，脚本内部为非交互所以只列清单；`ncdu`/`mtr-tiny`/`bind9-dnsutils` 是磁盘、链路、DNS 三件套。tcpdump/strace/sysstat 等有提权面或需额外启用的诊断类仍不预装，用到再装。
@@ -98,9 +90,28 @@ timedatectl                            # 确认 NTP service active
 
 ```bash
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-user.sh)
+# 国内拉不动 → 加速版：
+sudo bash <(curl -sL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-user.sh)
 ```
 
-做什么：新建管理员用户并加入 sudo 组；也支持**管理已有用户**——重跑脚本可换目标用户、设置/修改登录密码（可选**随机生成**——显示一次请立即保存，不存 conf；或转发 `passwd` 原生交互自己输入）、修改 sudo 免密（含翻转：开↔关，自动处理 sudoers 文件的写入与删除）、追加或删除公钥。新建用户无密码时默认提示设置（否则 sudo 密码模式无法验证）。公钥写入 `~/.ssh/authorized_keys`（权限 700/600、属主正确），同步存入 conf 供复用。
+做什么：**菜单式**——选好目标用户（新建或管理已有，conf 记住上次操作的用户）后进入主菜单，一次只做一件事，`0` 退出：
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 用户管理 · wildgrass
+──────────────────────────────
+  登录密码   已设置 ✓
+  sudo 免密  开（免密）
+  公钥       2 个
+──────────────────────────────
+  1) 设置/修改登录密码
+  2) sudo 免密 开↔关
+  3) 管理公钥（追加/删除）
+  0) 退出
+──────────────────────────────
+```
+
+1=设置/修改登录密码（可选**随机生成**——显示一次请立即保存，不存 conf；或转发 `passwd` 原生交互自己输入）；2=sudo 免密切换（确认一次后自动处理 sudoers 文件的写入与删除，`visudo -c` 校验兜底）；3=公钥追加/删除（每笔改动立即重写 `~/.ssh/authorized_keys`，权限 700/600、属主正确），同步存入 conf 供复用。用户无密码时状态行标 `⚠`，退出前再提醒一次（否则 sudo 密码模式无法验证）。
 
 > **闸门一**：新开终端验证 `ssh <用户名>@<host>` 密钥登录成功 + `sudo -v` 通过。**不通过，禁止执行第 5 步之后。**
 
@@ -108,6 +119,8 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-
 
 ```bash
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw.sh)
+# 国内拉不动 → 加速版：
+sudo bash <(curl -sL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw.sh)
 ```
 
 做什么：ufw 默认拒绝入站、允许出站；放行新 SSH 端口（首次询问时**回车即用随机端口**，也可自己输入）；**临时放行当前 SSH 端口**（自动从 sshd 读取，22 或厂商随机端口均可，第 6 步完成前旧端口还得用）；按需放行业务端口（脚本会问，逗号分隔，如 `80,443`，留空跳过）；最后 `ufw --force enable` 启用。跑完 `ufw status` 应看到新端口和旧端口都在列表。
@@ -116,6 +129,8 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-
 
 ```bash
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-ssh.sh)
+# 国内拉不动 → 加速版：
+sudo bash <(curl -sL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-ssh.sh)
 ```
 
 做什么：写入 `/etc/ssh/sshd_config.d/01-hardening.conf`——改端口（conf 已有则沿用；05 首次已存，无需再输）、禁 root 登录、禁密码认证（只留密钥）、`AllowUsers` 限定管理员、`MaxAuthTries 3`。01 前缀抢在云镜像 `50-cloud-init.conf` 之前拿优先权（sshd 配置先出现者优先）。写完 `sshd -t` 语法校验、`sshd -T` 验证实际生效值（防 drop-in 被覆盖）、`reload` 生效、确认新端口在监听。
@@ -128,6 +143,8 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-
 
 ```bash
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/07-fail2ban.sh)
+# 国内拉不动 → 加速版：
+sudo bash <(curl -sL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/07-fail2ban.sh)
 ```
 
 做什么：安装 fail2ban，写 `/etc/fail2ban/jail.local`——sshd jail 监听**新端口**（不写则默认盯 22，形同虚设）、`backend = systemd`（兼容 Debian 12 无 auth.log 与 Ubuntu 24.04+）。默认激进档：封 24h / 窗口 10min / 3 次触发，脚本会问是否自定义。启用后 `fail2ban-client status sshd` 确认。
@@ -136,6 +153,8 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/07-
 
 ```bash
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/08-swap.sh)
+# 国内拉不动 → 加速版：
+sudo bash <(curl -sL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/08-swap.sh)
 ```
 
 做什么：交互式管理 swap 文件——查看现状 / 创建（写 fstab 持久化）/ 调整 swappiness / 删除，自带 fstab 备份回滚。完成后 `free -h` 与 `swapon --show` 确认。
@@ -144,6 +163,8 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/08-
 
 ```bash
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/09-bbr.sh)
+# 国内拉不动 → 加速版：
+sudo bash <(curl -sL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/09-bbr.sh)
 ```
 
 做什么：写入 `/etc/sysctl.d/99-bbr.conf`——开启 BBR 拥塞控制 + fq 队列，附带一组 TCP 缓冲/连接参数调优；`sysctl -p` 应用后验证 `tcp_congestion_control = bbr`。个别键若被新内核移除（如 `tcp_fack`）仅警告不中断。
@@ -175,6 +196,8 @@ bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
 
 ```bash
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-verify.sh)
+# 国内拉不动 → 加速版：
+sudo bash <(curl -sL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-verify.sh)
 ```
 
 做什么：逐项做绿/红终检——sshd 实际生效值（端口/禁密码/禁 root）、ufw 规则（含旧端口已关）、fail2ban jail、自动更新与 needrestart（升级后重启受影响服务，缺它则库补丁不生效）为红灯项；swap / BBR / NTP / 磁盘 / 重启标记为黄灯提示。报告 + 配置摘要（端口/用户/放行端口/fail2ban 参数）写入 `/root/vps-init-report.md`，可作归档记录。有红灯退出码 1，修复后重跑。全绿后：核对报告 → 云平台创建最终 Snapshot。
