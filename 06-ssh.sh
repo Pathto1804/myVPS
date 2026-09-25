@@ -73,6 +73,7 @@ backup_file() {
 }
 
 CONF="/root/.vps-init.conf"
+BK_ROOT="/root/vps-init-backups"
 
 v_ssh_port() {
   local p="$1"
@@ -131,17 +132,22 @@ if command -v ufw >/dev/null 2>&1; then
 fi
 
 # ---------- 检查 drop-in 覆盖项（cloud-init 常见） ----------
+HARD="/etc/ssh/sshd_config.d/01-hardening.conf"
 if [[ -d "${SSHD_D}" ]]; then
   for f in "${SSHD_D}"/*.conf; do
     [[ -f "${f}" ]] || continue
+    [[ "${f}" == "${HARD}" ]] && continue   # 本脚本自己的输出，不算覆盖项（幂等重跑）
     if grep -q '^PasswordAuthentication' "${f}" 2>/dev/null; then
-      printf '%s警告：%s 含 PasswordAuthentication 覆盖项（先出现者优先，会压过本脚本的 01- 配置）。\n' "${C_Y}" "${f}" >&2
+      if [[ "${f}" < "${HARD}" ]]; then
+        printf '%s警告：%s 排序在 01- 之前且含 PasswordAuthentication，会压过本脚本的配置。\n' "${C_Y}" "${f}" >&2
+      else
+        printf '%s提示：%s 含 PasswordAuthentication，但排序在 01- 之后，被 01- 压住、不会生效。\n' "${C_Y}" "${f}" >&2
+      fi
     fi
   done
 fi
 
 # ---------- 写入 01-hardening.conf ----------
-HARD="/etc/ssh/sshd_config.d/01-hardening.conf"
 backup_file "${HARD}" >/dev/null || true
 printf 'Port %s\nPermitRootLogin no\nPasswordAuthentication no\nPubkeyAuthentication yes\nAllowUsers %s\nMaxAuthTries 3\n' \
   "${SSH_PORT}" "${ADMIN_USER}" > "${HARD}"
@@ -168,7 +174,15 @@ if ! ask_yesno "已在 04 后用新终端验证过 ${ADMIN_USER} 的密钥登录
 fi
 
 # ---------- 应用配置 ----------
-systemctl reload ssh || die "ssh reload 失败（sshd -t 已过，多为权限/服务名问题）"
+# Ubuntu 22.10+ 等默认用 ssh.socket 套接字激活：监听端口由 socket 单元决定，
+# sshd_config 的 Port 不生效（sshd -T 只读配置文件，会"骗人"）。统一转回标准
+# ssh.service 模式，让端口、AllowUsers 等策略真正生效。
+if systemctl is-enabled ssh.socket >/dev/null 2>&1 || systemctl is-active ssh.socket >/dev/null 2>&1; then
+  log "检测到 ssh.socket 套接字激活，切换回标准 ssh.service 模式（否则新端口不生效）"
+  systemctl disable --now ssh.socket
+  systemctl enable ssh.service
+fi
+systemctl restart ssh || die "ssh 启动失败（sshd -t 已过，多为权限/服务名问题）；备份在 /root/vps-init-backups/"
 log "sshd 已生效：新端口 ${SSH_PORT}"
 
 # 自检：端口监听

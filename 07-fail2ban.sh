@@ -6,6 +6,7 @@ set -euo pipefail
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 CONF="/root/.vps-init.conf"
+BK_ROOT="/root/vps-init-backups"
 
 if [[ -t 1 ]]; then
   C_G=$'\e[32m'; C_Y=$'\e[33m'; C_R=$'\e[31m'; C_B=$'\e[1m'; C_0=$'\e[0m'

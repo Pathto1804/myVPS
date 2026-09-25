@@ -166,6 +166,11 @@ MaxAuthTries 3
 sshd -t                                      # 无输出即语法正确
 sshd -T | grep -Ei 'port|passwordauthentication|permitrootlogin'
 # 必须看到：port <新端口> / passwordauthentication no / permitrootlogin no
+systemctl is-enabled ssh.socket              # Ubuntu 22.10+ 注意！
+# 若显示 enabled/active：套接字激活模式下 sshd_config 的 Port 不生效，
+# 要转回标准服务模式——
+systemctl disable --now ssh.socket && systemctl enable --now ssh.service
+ss -tlnp | grep sshd                         # 确认监听端口已是新端口
 ```
 
 > **闸门二（人工执行）**：reload 前确认密钥登录可用（闸门一已过）；然后：
