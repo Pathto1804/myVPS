@@ -109,8 +109,8 @@ fi
 OLD_PORT=""
 if conf_has "OLD_SSH_PORT"; then OLD_PORT="$(conf_read "OLD_SSH_PORT")"; fi
 if ! [[ "${OLD_PORT}" =~ ^[0-9]+$ ]]; then
-  OLD_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '
-')"
+  # awk 不早退（早退会让 sshd 收 SIGPIPE，pipefail 下赋值失败）；|| true 让失败落到下一行的默认值
+  OLD_PORT="$(sshd -T 2>/dev/null | awk '/^port /{p=$2} END{print p}' | tr -d '\r')" || true
 fi
 [[ "${OLD_PORT}" =~ ^[0-9]+$ ]] || OLD_PORT="22"
 
@@ -154,7 +154,7 @@ if ! sshd -t; then
 fi
 
 # ---------- sshd -T 验证实际生效值 ----------
-ACTUAL_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '\r')"
+ACTUAL_PORT="$(sshd -T 2>/dev/null | awk '/^port /{p=$2} END{print p}' | tr -d '\r')" || true
 if [[ "${ACTUAL_PORT}" != "${SSH_PORT}" ]]; then
   warn "sshd -T 实际端口 ${ACTUAL_PORT:-未知} != 期望 ${SSH_PORT}"
   warn "多半是 ${SSHD_D}/ 下的覆盖文件抢了优先权（先出现者优先）；请检查后重跑"

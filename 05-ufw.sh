@@ -131,10 +131,12 @@ require_tty
 require_distro
 
 # 旧端口：从 sshd 实际生效值读取（兼容厂商预置随机端口；不假设 22）
-OLD_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '
-')"
+# 不用 `awk '/^port /{print $2; exit}'`：awk 提前退出会让 sshd 收到 SIGPIPE（141），
+# 在 set -o pipefail 下整条管道非零 → 赋值失败 → ERR trap 裸奔退出，下面这行自检永远跑不到。
+# `|| true` 让 sshd -T 真失败时也落到下面的格式校验，报出可读原因。
+OLD_PORT="$(sshd -T 2>/dev/null | awk '/^port /{p=$2} END{print p}' | tr -d '\r')" || true
 if ! [[ "${OLD_PORT}" =~ ^[0-9]+$ ]]; then
-  die "无法读取 sshd 当前端口（sshd -T 失败），中止"
+  die "无法读取 sshd 当前端口（sshd -T 失败），中止。手动跑 sshd -T 看报错（常见：/run/sshd 缺失，mkdir -p /run/sshd）"
 fi
 log "sshd 当前端口：${OLD_PORT}"
 if conf_has "OLD_SSH_PORT" && [[ "$(conf_read "OLD_SSH_PORT")" != "${OLD_PORT}" ]]; then

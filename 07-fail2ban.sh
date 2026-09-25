@@ -102,7 +102,7 @@ if conf_has "SSH_PORT"; then SSH_PORT="$(conf_read "SSH_PORT")"; fi
 if ! v_ssh_port "${SSH_PORT}" >/dev/null 2>&1; then
   SSH_PORT="$(ask_input "新 SSH 端口" v_ssh_port)"
 fi
-ACTUAL="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '\r')"
+ACTUAL="$(sshd -T 2>/dev/null | awk '/^port /{p=$2} END{print p}' | tr -d '\r')" || true
 if [[ -n "${ACTUAL}" && "${ACTUAL}" != "${SSH_PORT}" ]]; then
   die "sshd 实际端口 ${ACTUAL} != 配置 ${SSH_PORT}。请先完成 05/06（jail 端口必须与实际端口一致）"
 fi

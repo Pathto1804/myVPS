@@ -189,7 +189,9 @@ gen_random_pw() {
   if command -v openssl >/dev/null 2>&1; then
     openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-22
   else
-    tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 22
+    # 不能写 `tr -dc ... < /dev/urandom | head -c 22`：head 读够就退出，tr 收到 SIGPIPE（141），
+    # 在 set -o pipefail 下 `pw="$(gen_random_pw)"` 赋值失败 → set -e 直接中止脚本
+    head -c 256 /dev/urandom | tr -dc 'A-Za-z0-9' | cut -c1-22
   fi
 }
 

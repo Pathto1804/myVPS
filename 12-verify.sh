@@ -55,9 +55,9 @@ echo ""
 # ---- 1-3. sshd 实际生效值 ----
 ACTUAL_PORT=""
 if command -v sshd >/dev/null 2>&1; then
-  ACTUAL_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' | tr -d '\r')"
-  PWD_AUTH="$(sshd -T 2>/dev/null | awk '/^passwordauthentication /{print $2; exit}')"
-  ROOT_LOGIN="$(sshd -T 2>/dev/null | awk '/^permitrootlogin /{print $2; exit}')"
+  ACTUAL_PORT="$(sshd -T 2>/dev/null | awk '/^port /{p=$2} END{print p}' | tr -d '\r')" || true
+  PWD_AUTH="$(sshd -T 2>/dev/null | awk '/^passwordauthentication /{p=$2} END{print p}' | tr -d '\r')" || true
+  ROOT_LOGIN="$(sshd -T 2>/dev/null | awk '/^permitrootlogin /{p=$2} END{print p}' | tr -d '\r')" || true
 
   # 1. 端口
   if [[ -z "${ACTUAL_PORT}" ]]; then
