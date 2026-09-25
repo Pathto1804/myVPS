@@ -17,6 +17,7 @@
 ## 开始之前（步骤 0：云平台基础检查）
 
 - `cat /etc/os-release` 确认发行版与版本；`nproc` / `free -h` / `df -h` 看配置
+- 系统要求：Debian 11+ / Ubuntu 20.04+（06 依赖 `sshd_config.d`；02 的 `bind9-dnsutils` 也自 Debian 11 / Ubuntu 20.04 起才有，更老的系统会在第 2 步装不上）
 - **记下当前 SSH 端口**：`sshd -T | grep ^port`——有些云厂商把 ssh 预置在随机端口上，后续步骤会自动识别，但你得知道它、并确认云安全组放行的是这个端口（第 6 步改端口后同步改）
 - 云平台安全组：记录当前放行规则（第 6 步改 SSH 端口后必须同步改）
 - **创建初始 Snapshot**——整个流程唯一不可替代的一步，锁死时的救命稻草
@@ -55,7 +56,7 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/02-tools.sh)
 ```
 
-做什么：装必装工具（`sudo ca-certificates curl wget gnupg ufw fail2ban unattended-upgrades vim nano unzip htop`），另问一句"还要装什么"，默认 `jq tmux lsof rsync zip`，不需要留空。诊断类工具（tcpdump/mtr/ncdu 等）用到再装，不预装。
+做什么：装必要项 + 常用实用工具（`sudo ca-certificates curl wget gnupg ufw fail2ban unattended-upgrades vim nano unzip htop needrestart ncdu mtr-tiny bind9-dnsutils`），另问一句"还要装什么"，默认 `jq tmux lsof rsync zip`，不需要留空。其中 `needrestart` 补上自动更新后重启受影响服务这一环（缺它则 libc/openssl 补丁装了不生效）——装完之后在有终端的 apt 里（含第 10 步的 docker 一键脚本）会多问一句要重启哪些服务，答 `i` 立即重启、`l` 只看清单，脚本内部为非交互所以只列清单；`ncdu`/`mtr-tiny`/`bind9-dnsutils` 是磁盘、链路、DNS 三件套。tcpdump/strace/sysstat 等有提权面或需额外启用的诊断类仍不预装，用到再装。
 
 **3. 系统基础配置**（手动）
 
@@ -150,7 +151,7 @@ bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
 sudo bash <(curl -sL https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-verify.sh)
 ```
 
-做什么：对 12 项做绿/红终检——sshd 实际生效值（端口/禁密码/禁 root）、ufw 规则（含旧端口已关）、fail2ban jail、自动更新为红灯项；swap / BBR / NTP / 磁盘 / 重启标记为黄灯提示。报告 + 配置摘要（端口/用户/放行端口/fail2ban 参数）写入 `/root/vps-init-report.md`，可作归档记录。有红灯退出码 1，修复后重跑。全绿后：核对报告 → 云平台创建最终 Snapshot。
+做什么：逐项做绿/红终检——sshd 实际生效值（端口/禁密码/禁 root）、ufw 规则（含旧端口已关）、fail2ban jail、自动更新与 needrestart（升级后重启受影响服务，缺它则库补丁不生效）为红灯项；swap / BBR / NTP / 磁盘 / 重启标记为黄灯提示。报告 + 配置摘要（端口/用户/放行端口/fail2ban 参数）写入 `/root/vps-init-report.md`，可作归档记录。有红灯退出码 1，修复后重跑。全绿后：核对报告 → 云平台创建最终 Snapshot。
 
 ## 参数只输一次
 

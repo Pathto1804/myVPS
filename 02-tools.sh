@@ -66,8 +66,14 @@ else
   log "TOOLS_EXTRA 已保存：${TOOLS_EXTRA}"
 fi
 
-BASE="sudo ca-certificates curl wget gnupg ufw fail2ban unattended-upgrades vim nano unzip htop"
-# 注意：git 按"要用再装"原则不列入默认（写入 TOOLS_EXTRA 即可）
+BASE="sudo ca-certificates curl wget gnupg ufw fail2ban unattended-upgrades vim nano unzip htop needrestart ncdu mtr-tiny bind9-dnsutils"
+# 必要项：sudo/ca-certificates/curl/wget（后续步骤与 raw 拉取的前提，wget 兼容只用 wget 的第三方脚本）、
+#   gnupg（第三方源签名）、ufw/fail2ban/unattended-upgrades（05/07/12 的检查项）、vim+nano（手动步骤改配置）
+# 实用项：unzip/htop、needrestart（自动更新后重启受影响服务，缺它则 libc/openssl 补丁装了不生效；
+#   非交互下只列清单不提问；手动/第三方脚本里跑 apt 有终端时会插问 l/i/a，答 i 即重启）、
+#   ncdu（磁盘占满定位）、mtr-tiny（逐跳丢包）、bind9-dnsutils（dig/nslookup，Debian 11/Ubuntu 20.04 起）
+# 仍不预装：tcpdump/strace/sysstat 等有提权面或需额外启用的诊断类，用到再装
+# git 按"要用再装"原则不列入默认（写入 TOOLS_EXTRA 即可）
 
 require_root
 require_tty

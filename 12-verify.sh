@@ -131,7 +131,14 @@ else
   bad "unattended-upgrades 未正确配置（检查 ${UA_FILE}）"
 fi
 
-# ---- 8-12. 黄灯项 ----
+# needrestart：库补丁升级后必须重启受影响服务，否则补丁不生效（非交互下只列清单）
+if command -v needrestart >/dev/null 2>&1; then
+  ok "needrestart 已安装（升级后会提示重启受影响服务）"
+else
+  bad "needrestart 未安装（自动更新后服务不重启，libc/openssl 补丁不生效）"
+fi
+
+# ---- 黄灯项 ----
 if [[ -n "$(swapon --show 2>/dev/null)" ]]; then
   ok "swap 已启用"
 else

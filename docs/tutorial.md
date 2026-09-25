@@ -83,10 +83,11 @@ reboot
 
 ```bash
 apt install -y sudo ca-certificates curl wget gnupg ufw fail2ban \
-  unattended-upgrades vim nano unzip htop jq tmux lsof rsync zip
+  unattended-upgrades vim nano unzip htop needrestart ncdu mtr-tiny \
+  bind9-dnsutils jq tmux lsof rsync zip
 ```
 
-一条装齐（必装 + 高频工具）。诊断类（tcpdump/mtr/ncdu 等）用到再装，不预装。
+一条装齐（必要项 + 常用实用工具）。其中 `needrestart` 补上自动更新后重启受影响服务这一环（缺它则 libc/openssl 补丁装了不生效）——装完之后在有终端的 apt 里（含第 11 步的 docker 一键脚本）会多问一句要重启哪些服务，答 `i` 立即重启、`l` 只看清单；`ncdu`/`mtr-tiny`/`bind9-dnsutils` 是磁盘、链路、DNS 三件套。tcpdump/strace/sysstat 等有提权面或需额外启用的诊断类仍不预装，用到再装。需要 Debian 11+ / Ubuntu 20.04+（更老的系统没有 `bind9-dnsutils`）。
 
 ## 3. 系统基础配置
 
@@ -287,6 +288,7 @@ sshd -T | grep -Ei 'port|passwordauthentication|permitrootlogin'
 ufw status                                   # 新端口在、旧端口不在
 fail2ban-client status sshd
 cat /etc/apt/apt.conf.d/20auto-upgrades
+command -v needrestart                       # 升级后提示重启受影响服务
 swapon --show
 sysctl net.ipv4.tcp_congestion_control       # bbr
 timedatectl | grep -E 'NTP|synchronized'

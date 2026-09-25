@@ -29,4 +29,32 @@ for fn in $FUNCS; do
     BAD+=1
   fi
 done
-[[ $BAD -eq 0 ]] && echo "=== 一致性 OK ===" || echo "=== ${BAD} 个函数仍有差异 ==="
+
+# ---- 包清单一致性：02-tools.sh 的 BASE / TOOLS_EXTRA 默认值 vs README 与手动教程 ----
+norm_list() { tr ' ' '\n' | grep -v '^$' | LC_ALL=C sort | tr '\n' ' ' | sed 's/ *$//'; }
+BASE_LIST="$(sed -n 's/^BASE="\(.*\)"$/\1/p' 02-tools.sh | norm_list)"
+EXTRA_LIST="$(sed -n 's/.*v_any "\([^"]*\)").*/\1/p' 02-tools.sh | norm_list)"
+README_BASE="$(grep -o '`sudo ca-certificates[^`]*`' README.md | head -1 | tr -d '`' | norm_list)"
+README_EXTRA="$(grep -o '默认 `jq [^`]*`' README.md | head -1 | sed 's/默认 //' | tr -d '`' | norm_list)"
+TUT_LIST="$(sed -n '/^apt install -y sudo ca-certificates/,/[^\\]$/p' docs/tutorial.md \
+            | tr -d '\\' | sed 's/^apt install -y //' | norm_list)"
+EXPECT_ALL="$(printf '%s %s' "${BASE_LIST}" "${EXTRA_LIST}" | norm_list)"
+
+check_list() {   # check_list <名称> <02-tools.sh 侧> <文档侧>
+  [[ "$2" == "$3" ]] && return 0
+  echo "❌ $1 与 02-tools.sh 不一致"
+  echo "    02-tools.sh: $2"
+  echo "    $1: $3"
+  BAD+=1
+}
+
+if [[ -z "${BASE_LIST}" ]]; then
+  echo "❌ 未能从 02-tools.sh 提取 BASE 包清单"
+  BAD+=1
+else
+  check_list "README 包清单" "${BASE_LIST}" "${README_BASE}"
+  check_list "README TOOLS_EXTRA 默认值" "${EXTRA_LIST}" "${README_EXTRA}"
+  check_list "tutorial 包清单" "${EXPECT_ALL}" "${TUT_LIST}"
+fi
+
+[[ $BAD -eq 0 ]] && echo "=== 一致性 OK ===" || echo "=== ${BAD} 处仍有差异 ==="
