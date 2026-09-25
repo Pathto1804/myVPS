@@ -28,7 +28,7 @@ bash <(curl -Lso- bench.sh)                  # 输出系统信息 + 网络测速
 国内服务器建议先换源（默认官方源国内访问慢）。换源在步骤 1 之前做，海外服务器跳过：
 
 ```bash
-bash <(curl -sSL https://linuxmirrors.cn/main.sh)
+bash <(curl -fsSL https://linuxmirrors.cn/main.sh)
 ```
 
 这是 SuperManito 的 [LinuxMirrors](https://linuxmirrors.cn) 开源换源脚本（MIT，支持 Debian/Ubuntu 等主流系统）。运行后按提示操作：
@@ -53,7 +53,7 @@ bash <(curl -sSL https://linuxmirrors.cn/main.sh)
 例：直接用阿里云 + HTTPS，不交互：
 
 ```bash
-bash <(curl -sSL https://linuxmirrors.cn/main.sh) --source mirrors.aliyun.com --protocol https
+bash <(curl -fsSL https://linuxmirrors.cn/main.sh) --source mirrors.aliyun.com --protocol https
 ```
 
 本地机器上准备好 SSH 密钥（已有则跳过）：
@@ -207,7 +207,9 @@ maxretry = 3
 
 ```bash
 systemctl enable --now fail2ban
-fail2ban-client status sshd                  # 检查点：jail 列表里有 sshd
+# 检查点：jail 列表里有 sshd。注意服务刚起时 jail 要 1~2 秒才加载，
+# 立刻查会报 "Jail 'sshd' does not exist"——等一两秒重试，或看 journalctl -u fail2ban 是否有 Server ready
+fail2ban-client status sshd
 ```
 
 ## 8. Swap
@@ -245,16 +247,19 @@ sysctl net.ipv4.tcp_congestion_control       # 检查点：输出 bbr
 ```bash
 apt install -y unattended-upgrades
 cat /etc/apt/apt.conf.d/20auto-upgrades      # 两行都应为 "1"
+# 若显示 "0"（apt 装完的默认值，等于没开）——写文件开启，或 dpkg-reconfigure -plow unattended-upgrades
+printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' > /etc/apt/apt.conf.d/20auto-upgrades
+systemctl enable --now apt-daily.timer apt-daily-upgrade.timer
 ```
 
-Ubuntu 一般已经开着了；Debian 装的时候会问你，选"是"。之后安全补丁系统自己装，你不用管。
+**装包不等于启用**：`unattended-upgrades` 装完时 `20auto-upgrades` 两行默认是 `"0"`（关闭），Ubuntu 无人值守镜像可能预置为 `"1"`、Debian 需自己开。之后安全补丁系统自己装（升级哪些源由 `50unattended-upgrades` 决定，默认含 security），你不用管。脚本流程里 02-tools.sh 已自动写入并启用，这一步只是复核。
 
 ## 11. Docker（提示）
 
 这次初始化不装 Docker。以后要装，用 [linuxmirrors](https://linuxmirrors.cn) 的一键脚本（装 Docker Engine 全家桶 + 配置镜像加速，国内服务器尤其合适）：
 
 ```bash
-bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
+bash <(curl -fsSL https://linuxmirrors.cn/docker.sh)
 ```
 
 运行后按提示操作：
@@ -281,7 +286,7 @@ bash <(curl -sSL https://linuxmirrors.cn/docker.sh)
 例：阿里云 CE 源 + 毫秒镜像加速 + 最新版 + 不动防火墙，全自动：
 
 ```bash
-bash <(curl -sSL https://linuxmirrors.cn/docker.sh) --source mirrors.aliyun.com --source-registry docker.1ms.run --install-latest true --close-firewall false
+bash <(curl -fsSL https://linuxmirrors.cn/docker.sh) --source mirrors.aliyun.com --source-registry docker.1ms.run --install-latest true --close-firewall false
 ```
 
 ## 12. 终检

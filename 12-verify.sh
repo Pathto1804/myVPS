@@ -124,7 +124,7 @@ fi
 # ---- 7. 自动安全更新 ----
 UA_FILE="/etc/apt/apt.conf.d/20auto-upgrades"
 if [[ -f "${UA_FILE}" ]] \
-   && grep -q 'APT::Periodic::Update "[1-9]' "${UA_FILE}" \
+   && grep -q 'APT::Periodic::Update-Package-Lists "[1-9]' "${UA_FILE}" \
    && grep -q 'APT::Periodic::Unattended-Upgrade "[1-9]' "${UA_FILE}"; then
   ok "unattended-upgrades 已启用"
 else

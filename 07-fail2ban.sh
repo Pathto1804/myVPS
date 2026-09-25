@@ -153,9 +153,15 @@ printf '[sshd]\nenabled = true\nport = %s\nbackend = systemd\nbantime = %s\nfind
 systemctl enable fail2ban
 systemctl restart fail2ban
 
-# 验证
-if ! fail2ban-client status sshd >/dev/null 2>&1; then
-  warn "fail2ban sshd jail 未启动，请检查：systemctl status fail2ban"
+# 验证：restart 返回 ≠ jail 就绪（fail2ban 读配置、起 systemd backend、建 socket 需 1~2s）
+# 立刻查询会误判"jail 未启动"，轮询等待
+jail_ok=0
+for _ in $(seq 1 20); do
+  if fail2ban-client status sshd >/dev/null 2>&1; then jail_ok=1; break; fi
+  sleep 0.5
+done
+if [[ "${jail_ok}" -ne 1 ]]; then
+  warn "fail2ban sshd jail 10 秒内未就绪，请检查：systemctl status fail2ban; journalctl -u fail2ban -n 50"
   exit 1
 fi
 log "fail2ban sshd jail 已启用（端口 ${SSH_PORT} / ${F2B_MAXRETRY} 次 / ${F2B_BANTIME}s）"

@@ -85,5 +85,17 @@ apt-get update
 # 空 TOOLS_EXTRA 时 word-splitting 为无参数，安全
 apt-get install -y ${BASE} ${TOOLS_EXTRA}
 
+# ---------- 启用自动安全更新 ----------
+# 关键：装包 ≠ 启用。20auto-upgrades 只在 dpkg-reconfigure 时生成，apt 装完默认是
+# 两行 "0"（等于关闭），12-verify 会判红。这里直接写（幂等，重跑覆盖为同内容）。
+# 具体升级哪些源由 50unattended-upgrades 决定（Debian/Ubuntu 默认含 security）。
+UA_FILE="/etc/apt/apt.conf.d/20auto-upgrades"
+printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' > "${UA_FILE}"
+chmod 644 "${UA_FILE}"
+# 定时器：Debian 由 apt 包自带并默认启用，这里显式拉起来兜底
+systemctl enable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || \
+  warn "apt-daily 定时器启用失败，请手动检查：systemctl status apt-daily.timer"
+log "自动安全更新已启用（${UA_FILE}）"
+
 log "本次安装包：${BASE} ${TOOLS_EXTRA}"
 log "第 2 步完成"

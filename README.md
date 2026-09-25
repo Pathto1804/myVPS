@@ -173,14 +173,13 @@ bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto18
 
 > 注意：仓库里的 `09-bbr.sh` 参数是根据我自己的 VPS（线路、内存、用途）特调的，**不一定适合你的机器**。想要匹配自己 VPS 的脚本，可去 <https://omnitt.com> 获取；从外部站点拉脚本执行前，请**自己检查脚本内容的安全性**再运行。
 
-**10. 自动安全更新**（手动）
+**10. 自动安全更新**（只复核，不用手动装）
 
 ```bash
-apt install -y unattended-upgrades
-cat /etc/apt/apt.conf.d/20auto-upgrades   # 确认 Update/Upgrade 均为 "1"
+cat /etc/apt/apt.conf.d/20auto-upgrades   # 两行都应为 "1"
 ```
 
-做什么：启用安全补丁自动安装（Ubuntu 默认已开，Debian 需装）。VPS 不常登录，这是廉价保险。
+做什么：启用安全补丁自动安装，VPS 不常登录，这是廉价保险。**02-tools.sh 已自动写入并启用**（装包不等于启用——apt 装完该文件默认是两行 `"0"`，等于关闭）。这里只是复核；若显示 `"0"`，说明 02 没跑到或被你覆盖过，重跑 02 即可。
 
 **11. Docker**（仅提示，不自动安装）
 

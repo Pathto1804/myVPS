@@ -185,9 +185,16 @@ fi
 systemctl restart ssh || die "ssh 启动失败（sshd -t 已过，多为权限/服务名问题）；备份在 /root/vps-init-backups/"
 log "sshd 已生效：新端口 ${SSH_PORT}"
 
-# 自检：端口监听
+# 自检：端口监听（systemctl restart 返回 ≠ 端口已绑定，轮询等待 bind 完成）
 if command -v ss >/dev/null 2>&1; then
-  ss -tln | awk '{print $4}' | grep -qE "[:.]${SSH_PORT}$" || warn "未见端口 ${SSH_PORT} 监听，请手动检查"
+  listening=0
+  for _ in $(seq 1 10); do
+    # 先取全量输出再匹配：grep -q 早退会让 ss 收 SIGPIPE，pipefail 下把成功误判为失败
+    ports="$(ss -tln 2>/dev/null | awk '{print $4}')" || true
+    if grep -qE "[:.]${SSH_PORT}$" <<<"${ports}"; then listening=1; break; fi
+    sleep 0.3
+  done
+  [[ "${listening}" -eq 1 ]] || warn "3 秒内未见端口 ${SSH_PORT} 监听，请手动检查：ss -tlnp | grep ${SSH_PORT}"
 fi
 
 log ""
