@@ -42,6 +42,32 @@
 
 > 想固定版本：把命令里的 `main` 换成发布 tag。断点续跑：初始化到一半 SSH 断了，重连后从对应步骤接着跑，已完成的脚本重跑会自动跳过。
 
+> **国内服务器拉不动 GitHub**（卡住、Connection reset、几十 KB/s）：在原始 URL 前加一层第三方加速前缀即可，后面步骤的命令同理。可选前缀（2026-09-25 逐个实测，返回的都是脚本原文）：
+>
+> ```text
+> https://ghfast.top/
+> https://gh-proxy.com/
+> https://ghproxy.net/
+> https://gh.llkk.cc/
+> https://gh.ddlc.top/
+> ```
+>
+> 拼法 = 前缀 + 原始 URL，例如第 1 步：
+>
+> ```bash
+> sudo bash <(curl -sL https://ghfast.top/https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-update.sh)
+> ```
+>
+> 也可以整段换成 jsDelivr CDN（`cdn.` / `fastly.` / `gcore.` / `testingcf.` 任一域名都行）：
+>
+> ```bash
+> sudo bash <(curl -sL https://cdn.jsdelivr.net/gh/Pathto1804/myVPS@main/01-update.sh)
+> ```
+>
+> 注意 CDN 按分支取有缓存（约 12 小时），可能拿到旧版，要准就用 tag。这些前缀时好时坏、随时可能挂——列表里第一个不行就换下一个，全不行就走下面「本机下载 + scp」那条。
+>
+> **加速站是第三方，脚本内容经它中转——等于让陌生人过一遍即将以 root 执行的代码**。在意就别用：改成「本机 `curl` 下载 → `scp` 上传到 VPS → `sudo bash 文件名`」最稳且不经第三方。无论哪条路，按开头免责声明的要求先自己读一遍再执行。
+
 **1. 系统更新**
 
 ```bash
