@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# 注：本文件是 vps/swap 仓库 swap.sh 的发布拷贝（改名 08- 对齐步骤号），
-#     更新时从上游拷贝后重命名；不在本仓库直接演进逻辑。
+# VPS 初始化 · 08 Swap 管理
+# 自包含 + 交互闸门。用法：sudo bash 08-swap.sh
+# 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/08-swap.sh
+#
+# 由来：本脚本原为 vps/swap 仓库的独立发布版，2026-09-26 起纳入本仓库
+#      统一维护（改名 08- 对齐步骤号），改动同样受 bash -n / shellcheck /
+#       tools/sync_check.sh 约束。风格上保留其自有 helper（ask_option/confirm
+#       等）与 set -uo pipefail（不启用 -e，段落内自行判错），不并入公共块。
 #
 # swap.sh - VPS Swap 交互管理脚本（Debian / Ubuntu）
 #

@@ -57,4 +57,40 @@ else
   check_list "tutorial 包清单" "${EXPECT_ALL}" "${TUT_LIST}"
 fi
 
+# ---- 公共变量一致性：定义必须唯一一致；用到就必须定义 ----
+# 覆盖全部脚本（含 08-swap.sh）：08 自带独立 helper，不参与公共函数比对，
+# 但只要它用了 CONF/BK_ROOT 就必须自己定义（set -u 下未定义即崩）。
+# 背景：变量赋值原先不在自检范围内——06/07/09 曾漏定义 BK_ROOT，
+# 首次运行因 backup_file 对不存在文件提前返回而掩盖，重跑触发备份时才崩。
+ALL_SCRIPTS="${SCRIPTS} 08-swap.sh"
+check_var() {   # check_var <变量名>
+  local var="$1" val="" val_src="" v="" line="" defs=""
+  for f in ${ALL_SCRIPTS}; do
+    [[ -f "$f" ]] || continue
+    defs="$(grep -E "^[[:space:]]*(readonly[[:space:]]+)?${var}=" "$f" || true)"
+    if [[ -n "${defs}" ]]; then
+      while IFS= read -r line; do
+        v="${line#*=}"
+        v="${v%\"}"; v="${v#\"}"          # 去外层双引号
+        if [[ -z "${val}" ]]; then
+          val="${v}"; val_src="${f}"
+        elif [[ "${v}" != "${val}" ]]; then
+          echo "❌ ${var} 取值不一致：${val_src}=${val} vs ${f}=${v}"
+          BAD+=1
+        fi
+      done <<<"${defs}"
+    elif grep -v '^[[:space:]]*#' "$f" | grep -qE "\\\$\{?${var}[^A-Za-z0-9_]"; then
+      echo "❌ ${var} 在 ${f} 中被使用但从未定义（set -u 下会崩）"
+      BAD+=1
+    fi
+  done
+}
+check_var CONF
+check_var BK_ROOT
+
+# ---- 脚本清单完整性：预期脚本文件必须存在（防误删/改名）----
+for f in ${ALL_SCRIPTS}; do
+  [[ -f "${f}" ]] || { echo "❌ 缺少脚本文件：${f}"; BAD+=1; }
+done
+
 [[ $BAD -eq 0 ]] && echo "=== 一致性 OK ===" || echo "=== ${BAD} 处仍有差异 ==="
