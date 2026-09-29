@@ -196,7 +196,26 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/07-fai
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/07-fail2ban.sh)
 ```
 
-做什么：安装 fail2ban，写 `/etc/fail2ban/jail.local`——sshd jail 监听**新端口**（不写则默认盯 22，形同虚设）、`backend = systemd`（兼容 Debian 12 无 auth.log 与 Ubuntu 24.04+）。默认激进档：封 24h / 窗口 10min / 3 次触发，脚本会问是否自定义。启用后 `fail2ban-client status sshd` 确认。
+做什么：**菜单式**——首次运行自动安装并配置，之后进入维护菜单，一次只做一件事，`0` 退出：
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ fail2ban · sshd jail
+───────────────────────────────────
+  服务        active ✓
+  jail 状态   运行中 ✓（封禁 0 个）
+  参数        bantime 86400 / findtime 600 / maxretry 3
+  端口        54321 = sshd 实际 ✓
+───────────────────────────────────
+  1) 应用 / 重新应用配置（安装 fail2ban + 写 jail.local + 重启 + 验证）
+  2) 查看状态详情（jail.local 内容 / 封禁列表 / 服务日志）
+  3) 修改参数（封禁时长 / 统计窗口 / 重试次数 → conf，可选立即应用）
+  4) 封禁 / 解封 IP
+  0) 退出
+───────────────────────────────────
+```
+
+应用配置（`1`，首次运行自动跑）：写 `/etc/fail2ban/jail.local`——sshd jail 监听**新端口**（不写则默认盯 22，形同虚设）、`backend = systemd`（兼容 Debian 12 无 auth.log 与 Ubuntu 24.04+）；默认激进档封 24h / 窗口 10min / 3 次触发，首次运行逐项询问（回车取默认）。写文件前自动备份到 `/root/vps-init-backups/`。**jail 端口必须与 sshd 实际端口一致**：不一致、或读不到 sshd 实际端口（`sshd -T` 失败）时**拒绝写入**并打印原因——不会拿一个编造的默认端口凑数，宁可 fail closed 也不让 fail2ban 去盯一个 sshd 没监听的端口（那是静默失效）。重启后轮询等 jail 就绪（fail2ban 读配置、起 backend 需 1~2 秒，立刻查会误报 `Jail 'sshd' does not exist`），10 秒未就绪即报错退出。退出前还会核对 jail 在跑且 jail 端口 == sshd 实际端口，都满足才打印"第 7 步完成"；否则打印"第 7 步未完成"并以非零退出（12-verify.sh 在同样状态下也会报红）。菜单其余项：`2`=只读详情（`jail.local` 内容 + `fail2ban-client status sshd` 的封禁列表 + 服务日志末 20 行）；`3`=改封禁时长/统计窗口/重试次数（写 conf，末尾问一句是否立即应用到 `jail.local`）；`4`=手动封禁/解封 IP（`fail2ban-client set sshd banip|unbanip`，仅接受 IPv4）。表头四行是实时状态：服务是否 active、jail 是否运行中及当前封禁数、`jail.local` 里的生效参数（与 conf 不一致时标注"按 1 应用"）、jail 端口与 sshd 实际端口是否一致（读不到时明确显示"未知"而非断言不一致）。
 
 **8. Swap**
 
@@ -290,7 +309,7 @@ ufw status                   # 改完确认
 
 - 放行/关闭端口的同看：**云平台安全组**要同步改，两边不一致就是"服务通不通"排查的常见坑
 - SSH 端口、sudo 策略、公钥等想改：重跑对应脚本（04/05/06），会沿用 conf 里的现有参数，只改你选择修改的项
-- fail2ban 参数想改：重跑 07；查看封禁情况 `fail2ban-client status sshd`
+- fail2ban 改参数 / 看封禁 / 解封误封的 IP：重跑 `07-fail2ban.sh` 进菜单（`3` 改参数、`2` 看详情与封禁列表、`4` 封禁或解封）
 - 系统补丁由 01/02 装的 `unattended-upgrades` 自动打（security 源）；需要手动全量升级时重跑 01
 - 定期创建 Snapshot（大改动前后各一份）；12-verify.sh 随时可重跑当体检
 

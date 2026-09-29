@@ -193,6 +193,8 @@ ufw delete allow <当前端口>/tcp              # 旧端口确认无用后删
 
 ## 7. fail2ban
 
+> 脚本版（`07-fail2ban.sh`）首次运行自动完成本节，之后重跑进维护菜单（应用配置 / 查看状态 / 改参数 / 封禁解封 IP）。这一节保留手动等价做法，便于理解每步在干什么。
+
 ```bash
 nano /etc/fail2ban/jail.local
 ```
