@@ -28,6 +28,8 @@ require_distro() {
   id="$(. /etc/os-release 2>/dev/null && printf '%s' "${ID:-}")"
   [[ "${id}" == "debian" || "${id}" == "ubuntu" ]] || die "仅支持 Debian/Ubuntu，当前发行版：${id:-未知}"
 }
+# 公共块函数（与其余脚本逐字节一致，sync_check 会比对）：读 conf 键值，缺失/失败输出空串
+conf_read()  { sed -n "s/^${1}='\\(.*\\)'\$/\\1/p" "${CONF}" 2>/dev/null | head -n 1 || true; }   # || true：conf 缺失或 head 早退（SIGPIPE）时输出空串，不中断
 
 # 结果统计与收集
 RED=0; YEL=0; OKN=0
@@ -41,10 +43,10 @@ HAS_CONF=0
 SSH_PORT=""; ADMIN_USER=""; ALLOWED_PORTS=""; OLD_PORT=""
 if [[ -f "${CONF}" ]]; then
   HAS_CONF=1
-  SSH_PORT="$(sed -n "s/^SSH_PORT='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
-  ADMIN_USER="$(sed -n "s/^ADMIN_USER='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
-  ALLOWED_PORTS="$(sed -n "s/^ALLOWED_PORTS='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
-  OLD_PORT="$(sed -n "s/^OLD_SSH_PORT='\(.*\)'\$/\1/p" "${CONF}" | head -n 1)"
+  SSH_PORT="$(conf_read SSH_PORT)"
+  ADMIN_USER="$(conf_read ADMIN_USER)"
+  ALLOWED_PORTS="$(conf_read ALLOWED_PORTS)"
+  OLD_PORT="$(conf_read OLD_SSH_PORT)"
 else
   warn "未找到 ${CONF}，降级为纯系统状态检查（conf 汇总将缺失）"
 fi
@@ -111,11 +113,19 @@ fi
 if command -v fail2ban-client >/dev/null 2>&1; then
   if systemctl is-active --quiet fail2ban && fail2ban-client status sshd >/dev/null 2>&1; then
     ok "fail2ban sshd jail 运行中"
-    if [[ -f /etc/fail2ban/jail.local && -n "${ACTUAL_PORT}" ]] \
-       && grep -Eq "^port *= *${ACTUAL_PORT}\$" /etc/fail2ban/jail.local; then
+    # jail 端口：07 只写单个数字；未写 port 时 fail2ban 用默认端口 22（README「不写则默认盯 22，形同虚设」）
+    JAIL_RAW="$(sed -n 's/^port *= *\(.*\)$/\1/p' /etc/fail2ban/jail.local 2>/dev/null | head -n 1 || true)"
+    JAIL_RAW="${JAIL_RAW//[[:space:]]/}"
+    if [[ ! -f /etc/fail2ban/jail.local || -z "${ACTUAL_PORT}" ]]; then
+      caution "无法确认 jail 端口与 sshd 一致（缺 jail.local 或读不到 sshd 端口），请人工核对 /etc/fail2ban/jail.local"
+    elif [[ "${JAIL_RAW:-22}" == "${ACTUAL_PORT}" ]]; then
       ok "jail.local 端口与 sshd 一致（${ACTUAL_PORT}）"
+    elif [[ -z "${JAIL_RAW}" ]]; then
+      bad "jail.local 未写 port：fail2ban 盯默认端口 22，而 sshd 在 ${ACTUAL_PORT}——该端口的爆破拦不住；重跑 07-fail2ban.sh 菜单 1"
+    elif [[ "${JAIL_RAW}" =~ ^[0-9]+$ ]]; then
+      bad "jail.local 端口 ${JAIL_RAW} != sshd 实际端口 ${ACTUAL_PORT}：fail2ban 封的是 ${JAIL_RAW} 的流量，${ACTUAL_PORT} 上的爆破拦不住；重跑 07-fail2ban.sh 菜单 1"
     else
-      caution "无法确认 jail 端口与 sshd 一致，请人工核对 /etc/fail2ban/jail.local"
+      caution "jail.local 的 port 写法（${JAIL_RAW}）非纯数字，无法判定是否覆盖 ${ACTUAL_PORT}，请人工核对"
     fi
   else
     bad "fail2ban 未运行或 sshd jail 未启用"

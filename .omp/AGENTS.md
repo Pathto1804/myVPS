@@ -48,7 +48,7 @@ bash tools/sync_check.sh                          # 改公共函数/公共变量
 ## 已知教训（新会话必读）
 
 - **命令替换不继承 errexit**（bash 默认；需 `shopt -s inherit_errexit`，bash ≥ 4.4）：`$(ask_input ...)` 里的 `read || die` 只终止子 shell，外层命令替换照常返回空串，空值会被 `conf_write` 照常写盘（2026-09-29 修 F3 时实测复现：`printf '%s\n' 0 | bash 07-fail2ban.sh` 会写出 `F2B_FINDTIME=''` 与 `findtime = ` 空值行）。8 个脚本（01/02/04/05/06/07/09/12）在 `set -euo pipefail` 之后统一开启；`08-swap.sh` 不开 `-e`，不适用。`tools/sync_check.sh` 的 `check_line` 拦漏加。
-- **`set -o pipefail` 下命令替换里的管道失败即中断**：`sed ... | head -n 1` 在 conf 缺失或 head 早退（SIGPIPE）时返回非零——公共块 `conf_read` 已加 `|| true`（输出空串），其余同类写法（`sshd_port`/`jail_val`/`fw_*`）也都带 `|| true`，新增同类 helper 时照此办理。
+- **`set -o pipefail` 下命令替换里的管道失败即中断**：`sed ... | head -n 1` 在 conf 缺失或 head 早退（SIGPIPE）时返回非零——公共块 `conf_read` 已加 `|| true`（输出空串），其余同类写法（`sshd_port`/`jail_val`/`fw_*`）也都带 `|| true`，新增同类 helper 时照此办理。`12-verify.sh` 也复用同一个 `conf_read`（曾内联 4 处 `sed|head`：conf 里同名键重复时会 141 中止、连报告都不生成）。
 - **多行带转义的 bash 块禁用 python/perl 程序化替换**（本仓库历史上连续多次产出损坏代码：字面 `\n`、0x01 控制字节、函数体截断）。改脚本优先用 Edit 逐块，程序化操作后立刻 `bash -n` + shellcheck。
 - Windows 环境注意：`.gitattributes` 强制 LF（CRLF 会让 raw 拉取的脚本在 Linux 上炸）；python subprocess 读 git 输出要显式 `encoding='utf-8'`（本地默认 GBK）。
 - 推送到远端前先征得用户确认（用户明令要求）。

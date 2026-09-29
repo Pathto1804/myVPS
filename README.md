@@ -267,7 +267,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-ver
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-verify.sh)
 ```
 
-做什么：逐项做绿/红终检——sshd 实际生效值（端口/禁密码/禁 root）、ufw 规则（含旧端口已关）、fail2ban jail、自动更新与 needrestart（升级后重启受影响服务，缺它则库补丁不生效）为红灯项；swap / BBR / NTP / 磁盘 / 重启标记为黄灯提示。报告 + 配置摘要（端口/用户/放行端口/fail2ban 参数）写入 `/root/vps-init-report.md`，可作归档记录。有红灯退出码 1，修复后重跑。全绿后：核对报告 → 云平台创建最终 Snapshot。
+做什么：逐项做绿/红终检——sshd 实际生效值（端口/禁密码/禁 root）、ufw 规则（含旧端口已关）、fail2ban jail（jail 未运行、或 `jail.local` 的 `port` ≠ sshd 实际端口，都判红；与 07 的 fail-closed 口径一致）、自动更新与 needrestart（升级后重启受影响服务，缺它则库补丁不生效）为红灯项；swap / BBR / NTP / 磁盘 / 重启标记为黄灯提示。报告 + 配置摘要（端口/用户/放行端口/fail2ban 参数）写入 `/root/vps-init-report.md`，可作归档记录。有红灯退出码 1，修复后重跑。全绿后：核对报告 → 云平台创建最终 Snapshot。
 
 ## 参数只输一次
 
