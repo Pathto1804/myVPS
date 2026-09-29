@@ -88,6 +88,18 @@ check_var() {   # check_var <变量名>
 check_var CONF
 check_var BK_ROOT
 
+# ---- 关键行存在性：属于公共块、但不进函数体 md5 比对的行（漏加不会被上面拦住）----
+check_line() {   # check_line <字面量行>：SCRIPTS 中每个脚本都必须整行包含该行
+  local pat="$1" f
+  for f in ${SCRIPTS}; do
+    [[ -f "$f" ]] || continue
+    grep -qxF "${pat}" "$f" || { echo "❌ ${f} 缺少关键行：${pat}"; BAD+=1; }
+  done
+}
+# 命令替换默认不继承 errexit：漏加这一行，$(ask_input ...) 里的 die 只终止子 shell，
+# 空值会被照常写进 conf（2026-09-29 修的 F3 缺陷，成因见 .omp/AGENTS.md 已知教训）
+check_line 'shopt -s inherit_errexit'
+
 # ---- 脚本清单完整性：预期脚本文件必须存在（防误删/改名）----
 for f in ${ALL_SCRIPTS}; do
   [[ -f "${f}" ]] || { echo "❌ 缺少脚本文件：${f}"; BAD+=1; }

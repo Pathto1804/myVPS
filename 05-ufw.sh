@@ -5,6 +5,9 @@
 # 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw.sh
 
 set -euo pipefail
+# 命令替换默认不继承 errexit：不开这个，$(ask_input ...) 里的 die 只终止子 shell，
+# 空值会被照常写进 conf。开启后交互读取遇 EOF/Ctrl-D 即中止脚本。（bash >= 4.4）
+shopt -s inherit_errexit
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 CONF="/root/.vps-init.conf"
@@ -76,7 +79,7 @@ backup_file() {
 }
 
 conf_has()   { grep -q "^${1}=" "${CONF}" 2>/dev/null; }
-conf_read()  { sed -n "s/^${1}='\\(.*\\)'\$/\\1/p" "${CONF}" 2>/dev/null | head -n 1; }
+conf_read()  { sed -n "s/^${1}='\\(.*\\)'\$/\\1/p" "${CONF}" 2>/dev/null | head -n 1 || true; }   # || true：conf 缺失或 head 早退（SIGPIPE）时输出空串，不中断
 conf_write() {
   # conf 首次创建即 600（幂等：已 600 无变化）
   local k="$1" v="$2"

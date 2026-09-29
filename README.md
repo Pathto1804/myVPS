@@ -273,6 +273,8 @@ bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto18
 
 SSH 端口、用户名、公钥这些参数：脚本问完会存进 `/root/.vps-init.conf`（600 权限，只在 VPS 本地，不进仓库），后面的脚本自动读取。这个文件删了也没关系，重跑脚本会重新询问。
 
+- 提示处按 `Ctrl-D`（输入流结束）＝**输入中断**：脚本立即以退出码 1 退出，**不会**把空值写进 conf——空值会污染后续脚本读取，所以这里刻意 fail fast，而不是拿空串继续
+
 conf 全部键（维护参考）：
 
 | 键 | 写入脚本 | 含义 / 默认 |
@@ -317,5 +319,5 @@ ufw status                   # 改完确认
 
 - 每个脚本自包含（公共函数内联，不依赖仓库里其他文件）、幂等、中文交互，单独拉取即可运行
 - 修改系统配置前先备份到 `/root/vps-init-backups/<时间戳>/`，失败不回滚（唯一例外：06 菜单 4 从备份恢复时会先校验 `sshd -t`，失败就退回恢复前的版本）
-- 公共函数在脚本间保持一致；改动后运行 `bash tools/sync_check.sh` 自查（输出「一致性 OK」才算通过）
+- 公共函数在脚本间保持一致；改动后运行 `bash tools/sync_check.sh` 自查（输出「一致性 OK」才算通过）。公共块里的关键行（如 `shopt -s inherit_errexit`）也纳入该工具检查——它不属于任何函数体，漏加不会被函数比对拦住
 - 术语表见 [CONTEXT.md](CONTEXT.md)，为什么没有总控脚本见 [docs/adr/0001-no-orchestrator.md](docs/adr/0001-no-orchestrator.md)

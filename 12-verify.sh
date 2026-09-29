@@ -3,6 +3,9 @@
 # 自包含 + 只读检查。用法：sudo bash 12-verify.sh
 # 项目：https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-verify.sh
 set -euo pipefail
+# 命令替换默认不继承 errexit：不开这个，$(ask_input ...) 里的 die 只终止子 shell，
+# 空值会被照常写进 conf。开启后交互读取遇 EOF/Ctrl-D 即中止脚本。（bash >= 4.4）
+shopt -s inherit_errexit
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 CONF="/root/.vps-init.conf"
