@@ -4,7 +4,7 @@
 
 ## 项目是什么
 
-面向 Debian/Ubuntu 个人 VPS 的基础安全初始化脚本集。**没有编排器**——人是编排器：README 提供每步命令（raw 拉取 `bash <(curl -sL .../NN-xxx.sh)`），脚本按步骤号执行（01/02/04/05/06/07/08/09/12；3/10/11 为手动命令/提示，跳号是有意的）。架构决策见 `docs/adr/0001-no-orchestrator.md`（不要提议加总控脚本/init.sh，已被否决过）。
+面向 Debian/Ubuntu 个人 VPS 的基础安全初始化脚本集。**没有编排器**——人是编排器：README 提供每步命令（raw 拉取 `bash <(curl -sL .../NN-xxx.sh)`），脚本按步骤号执行（01/04/05/06/07/08/09/12；3/10/11 为手动命令/提示，跳号是有意的）。架构决策见 `docs/adr/0001-no-orchestrator.md`（不要提议加总控脚本/init.sh，已被否决过）。
 
 ## 常用命令
 
@@ -39,7 +39,7 @@ bash tools/sync_check.sh                          # 改公共函数/公共变量
 - `tools/sync_check.sh`：公共块一致性自检，在**改公共代码后拦住"只改了一个脚本"的失守**。检查五项：
   1. **24 个公共函数跨脚本一致**（md5 比对函数体）——内联复制机制下，任一脚本被单独修改即报警
   2. **`CONF`/`BK_ROOT` 变量一致**——取值须跨脚本相同；被使用就必须有定义（set -u 下漏定义即崩，2026-09-26 的事故）
-  3. **包清单与文档一致**——`02-tools.sh` 的 `BASE`/`TOOLS_EXTRA` 必须与 README、`docs/tutorial.md` 对应清单逐项相同
+  3. **包清单与文档一致**——`01-base.sh` 的 `BASE`/`TOOLS_EXTRA` 必须与 README、`docs/tutorial.md` 对应清单逐项相同
   4. **脚本清单完整性**——预期脚本文件缺失/改名即报
   5. **公共块关键行存在性**（`check_line`）——如 `shopt -s inherit_errexit`：不属于任何函数体，漏加不会被上面四项拦住（2026-09-29 加）
 
@@ -47,7 +47,7 @@ bash tools/sync_check.sh                          # 改公共函数/公共变量
 
 ## 已知教训（新会话必读）
 
-- **命令替换不继承 errexit**（bash 默认；需 `shopt -s inherit_errexit`，bash ≥ 4.4）：`$(ask_input ...)` 里的 `read || die` 只终止子 shell，外层命令替换照常返回空串，空值会被 `conf_write` 照常写盘（2026-09-29 修 F3 时实测复现：`printf '%s\n' 0 | bash 07-fail2ban.sh` 会写出 `F2B_FINDTIME=''` 与 `findtime = ` 空值行）。8 个脚本（01/02/04/05/06/07/09/12）在 `set -euo pipefail` 之后统一开启；`08-swap.sh` 不开 `-e`，不适用。`tools/sync_check.sh` 的 `check_line` 拦漏加。
+- **命令替换不继承 errexit**（bash 默认；需 `shopt -s inherit_errexit`，bash ≥ 4.4）：`$(ask_input ...)` 里的 `read || die` 只终止子 shell，外层命令替换照常返回空串，空值会被 `conf_write` 照常写盘（2026-09-29 修 F3 时实测复现：`printf '%s\n' 0 | bash 07-fail2ban.sh` 会写出 `F2B_FINDTIME=''` 与 `findtime = ` 空值行）。7 个脚本（01/04/05/06/07/09/12）在 `set -euo pipefail` 之后统一开启；`08-swap.sh` 不开 `-e`，不适用。`tools/sync_check.sh` 的 `check_line` 拦漏加。
 - **`set -o pipefail` 下命令替换里的管道失败即中断**：`sed ... | head -n 1` 在 conf 缺失或 head 早退（SIGPIPE）时返回非零——公共块 `conf_read` 已加 `|| true`（输出空串），其余同类写法（`sshd_port`/`jail_val`/`fw_*`）也都带 `|| true`，新增同类 helper 时照此办理。`12-verify.sh` 也复用同一个 `conf_read`（曾内联 4 处 `sed|head`：conf 里同名键重复时会 141 中止、连报告都不生成）。
 - **多行带转义的 bash 块禁用 python/perl 程序化替换**（本仓库历史上连续多次产出损坏代码：字面 `\n`、0x01 控制字节、函数体截断）。改脚本优先用 Edit 逐块，程序化操作后立刻 `bash -n` + shellcheck。
 - Windows 环境注意：`.gitattributes` 强制 LF（CRLF 会让 raw 拉取的脚本在 Linux 上炸）；python subprocess 读 git 输出要显式 `encoding='utf-8'`（本地默认 GBK）。

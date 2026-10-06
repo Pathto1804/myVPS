@@ -17,7 +17,7 @@
 ## 开始之前（步骤 0：云平台基础检查）
 
 - `cat /etc/os-release` 确认发行版与版本；`nproc` / `free -h` / `df -h` 看配置
-- 系统要求：Debian 11+ / Ubuntu 20.04+（06 依赖 `sshd_config.d`；02 的 `bind9-dnsutils` 也自 Debian 11 / Ubuntu 20.04 起才有，更老的系统会在第 2 步装不上）
+- 系统要求：Debian 11+ / Ubuntu 20.04+（06 依赖 `sshd_config.d`；01-base 的 `bind9-dnsutils` 也自 Debian 11 / Ubuntu 20.04 起才有，更老的系统会在第 1–2 步装不上）
 - **记下当前 SSH 端口**：`sshd -T | grep ^port`——有些云厂商把 ssh 预置在随机端口上，后续步骤会自动识别，但你得知道它、并确认云安全组放行的是这个端口（第 6 步改端口后同步改）
 - 云平台安全组：记录当前放行规则（第 6 步改 SSH 端口后必须同步改）
 - **创建初始 Snapshot**——整个流程唯一不可替代的一步，锁死时的救命稻草
@@ -67,34 +67,24 @@
 >
 > 按开头免责声明的要求，无论哪条路，执行前先读一遍。
 
-**1. 系统更新**
+**1–2. 系统准备（系统更新 + 基础工具）**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-update.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-base.sh)
 # 国内拉不动 → 加速版：
-bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-update.sh)
+bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-base.sh)
 ```
 
 做什么：
 
 - `apt update` + `apt full-upgrade`，把系统补到最新
-- 升级后若需要重启（通常是内核更新），脚本会询问；选 y 自动重启，重连后从第 2 步继续
-
-**2. 基础工具**
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/02-tools.sh)
-# 国内拉不动 → 加速版：
-bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/02-tools.sh)
-```
-
-做什么：
-
 - 装必要项 + 常用实用工具：`sudo ca-certificates curl wget gnupg ufw fail2ban unattended-upgrades vim nano unzip htop needrestart ncdu mtr-tiny bind9-dnsutils`
 - 另问一句"还要装什么"，默认 `jq tmux lsof rsync zip`，不需要留空
+- 写入并启用安全补丁自动安装（`20auto-upgrades` 两行 `"1"`；第 10 步只是复核）
 - **needrestart**：补上自动更新后重启受影响服务这一环（缺它则 libc/openssl 补丁装了不生效）。装完之后在有终端的 apt 里（含第 10 步的 docker 一键脚本）会多问一句要重启哪些服务，答 `i` 立即重启、`l` 只看清单；脚本内部为非交互所以只列清单
 - **ncdu / mtr-tiny / bind9-dnsutils**：磁盘、链路、DNS 三件套
 - tcpdump/strace/sysstat 等有提权面或需额外启用的诊断类仍不预装，用到再装
+- **最后才问重启**：需要重启（通常是内核更新）时选 y 自动重启，重连后从第 3 步继续
 
 **3. 系统基础配置**（手动）
 
@@ -252,8 +242,8 @@ cat /etc/apt/apt.conf.d/20auto-upgrades   # 两行都应为 "1"
 做什么：
 
 - 启用安全补丁自动安装（VPS 不常登录，这是廉价保险）
-- **02-tools.sh 已自动写入并启用**（装包不等于启用——apt 装完该文件默认是两行 `"0"`，等于关闭）
-- 这里只是复核：若显示 `"0"`，说明 02 没跑到或被你覆盖过，重跑 02 即可
+- **01-base.sh 已自动写入并启用**（装包不等于启用——apt 装完该文件默认是两行 `"0"`，等于关闭）
+- 这里只是复核：若显示 `"0"`，说明 `01-base.sh` 没跑到或被你覆盖过，重跑即可
 
 **11. Docker**（仅提示，不自动安装）
 
@@ -334,7 +324,7 @@ ufw status                   # 改完确认
 - 放行/关闭端口的同看：**云平台安全组**要同步改，两边不一致就是"服务通不通"排查的常见坑
 - SSH 端口、sudo 策略、公钥等想改：重跑对应脚本（04/05/06），会沿用 conf 里的现有参数，只改你选择修改的项
 - fail2ban 改参数 / 看封禁 / 解封误封的 IP：重跑 `07-fail2ban.sh` 进菜单（`3` 改参数、`2` 看详情与封禁列表、`4` 封禁或解封）
-- 系统补丁由 01/02 装的 `unattended-upgrades` 自动打（security 源）；需要手动全量升级时重跑 01
+- 系统补丁由 `01-base.sh` 装的 `unattended-upgrades` 自动打（security 源）；需要手动全量升级时重跑 `01-base.sh`
 - 定期创建 Snapshot（大改动前后各一份）；12-verify.sh 随时可重跑当体检
 
 ## 脚本约定（开发者视角）

@@ -63,7 +63,9 @@ ssh-keygen -t ed25519
 cat ~/.ssh/id_ed25519.pub                    # 稍后步骤 4 要用
 ```
 
-## 1. 系统更新
+## 1–2. 系统准备（系统更新 + 基础工具）
+
+### 系统更新
 
 ```bash
 apt update
@@ -77,9 +79,9 @@ cat /var/run/reboot-required 2>/dev/null     # 文件不存在则无需重启
 reboot
 ```
 
-重启完重新连上就行。想确认的话：`uname -r` 显示的版本应该变了。
+重启完重新连上就行。想确认的话：`uname -r` 显示的版本应该变了。脚本版（`01-base.sh`）把这两步连着做：升级 → 装工具 → **最后才问重启**，一次重启收尾，中途不用来回重连。
 
-## 2. 基础工具
+### 基础工具
 
 ```bash
 apt install -y sudo ca-certificates curl wget gnupg ufw fail2ban \
@@ -258,7 +260,7 @@ printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgr
 systemctl enable --now apt-daily.timer apt-daily-upgrade.timer
 ```
 
-**装包不等于启用**：`unattended-upgrades` 装完时 `20auto-upgrades` 两行默认是 `"0"`（关闭），Ubuntu 无人值守镜像可能预置为 `"1"`、Debian 需自己开。之后安全补丁系统自己装（升级哪些源由 `50unattended-upgrades` 决定，默认含 security），你不用管。脚本流程里 02-tools.sh 已自动写入并启用，这一步只是复核。
+**装包不等于启用**：`unattended-upgrades` 装完时 `20auto-upgrades` 两行默认是 `"0"`（关闭），Ubuntu 无人值守镜像可能预置为 `"1"`、Debian 需自己开。之后安全补丁系统自己装（升级哪些源由 `50unattended-upgrades` 决定，默认含 security），你不用管。脚本流程里 01-base.sh 已自动写入并启用，这一步只是复核。
 
 ## 11. Docker（提示）
 

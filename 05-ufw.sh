@@ -499,7 +499,7 @@ require_root
 require_tty
 require_distro
 
-command -v ufw >/dev/null 2>&1 || die "未找到 ufw，请先执行 02-tools.sh（安装基础工具）"
+command -v ufw >/dev/null 2>&1 || die "未找到 ufw，请先执行 01-base.sh（安装基础工具）"
 
 # 首次运行（conf 无 SSH_PORT）自动初始化，之后进维护菜单
 if ! conf_has "SSH_PORT"; then
