@@ -17,9 +17,9 @@
 ## 开始之前（步骤 0：云平台基础检查）
 
 - `cat /etc/os-release` 确认发行版与版本；`nproc` / `free -h` / `df -h` 看配置
-- 系统要求：Debian 11+ / Ubuntu 20.04+（06 依赖 `sshd_config.d`；01-base 的 `bind9-dnsutils` 也自 Debian 11 / Ubuntu 20.04 起才有，更老的系统会在第 1–2 步装不上）
-- **记下当前 SSH 端口**：`sshd -T | grep ^port`——有些云厂商把 ssh 预置在随机端口上，后续步骤会自动识别，但你得知道它、并确认云安全组放行的是这个端口（第 6 步改端口后同步改）
-- 云平台安全组：记录当前放行规则（第 6 步改 SSH 端口后必须同步改）
+- 系统要求：Debian 11+ / Ubuntu 20.04+（`05-ufw-ssh.sh` 依赖 `sshd_config.d`；01-base 的 `bind9-dnsutils` 也自 Debian 11 / Ubuntu 20.04 起才有，更老的系统会在第 1–2 步装不上）
+- **记下当前 SSH 端口**：`sshd -T | grep ^port`——有些云厂商把 ssh 预置在随机端口上，后续步骤会自动识别，但你得知道它、并确认云安全组放行的是这个端口（第 5–6 步改端口后同步改）
+- 云平台安全组：记录当前放行规则（第 5–6 步改 SSH 端口后必须同步改）
 - **创建初始 Snapshot**——整个流程唯一不可替代的一步，锁死时的救命稻草
 - 本地生成 SSH 密钥（已有则跳过）：`ssh-keygen -t ed25519`
 - 云镜像一般自带 curl，没有就 `apt install -y curl`
@@ -117,49 +117,29 @@ bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto18
 
 用户无密码时状态行标 `⚠`，退出前再提醒一次（否则 sudo 密码模式无法验证）。
 
-> **闸门一**：新开终端验证 `ssh <用户名>@<host>` 密钥登录成功 + `sudo -v` 通过。**不通过，禁止执行第 5 步之后。**
+> **闸门一**：新开终端验证 `ssh <用户名>@<host>` 密钥登录成功 + `sudo -v` 通过。**不通过，禁止执行第 5–6 步之后。**
 
-**5. UFW 防火墙**
+**5–6. 防火墙 + SSH 加固**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw-ssh.sh)
 # 国内拉不动 → 加速版：
-bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw.sh)
+bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw-ssh.sh)
 ```
 
-做什么：**菜单式**——首次运行自动执行初始化，之后进入维护菜单，一次只做一件事，`0` 退出。
+做什么：**菜单式**——首次运行先做防火墙初始化，紧接着走 SSH 加固流程（双闸门），之后进入维护菜单，一次只做一件事，`0` 退出。ufw 未启用时不会硬闯 sshd 加固（铁律：UFW 先于 sshd），只会提示你先用菜单 `1`。
 
-初始化（`1`，首次运行自动跑）：
+防火墙初始化（菜单 `1`，首次运行自动跑）：
 
 - ufw 默认拒绝入站、允许出站
 - 放行新 SSH 端口（首次询问时**回车即用随机端口**，也可自己输入）
-- **迁移期临时放行当前 SSH 端口**：自动从 sshd 读取，22 或厂商随机端口均可，第 6 步完成前旧端口还得用；sshd 已在新端口上则不建这条规则
+- **迁移期临时放行当前 SSH 端口**：自动从 sshd 读取，22 或厂商随机端口均可，第 5–6 步完成前旧端口还得用；sshd 已在新端口上则不建这条规则
 - 按需放行业务端口
 - **启用前自检**：新端口已在放行列表，未放行就拒绝启用（防锁死；ufw 未启用时 `ufw status` 不列规则，故该自检读 `ufw show added`）
 
-其余项：
+SSH 加固（菜单 `2`，未加固时首次运行自动接着跑）：
 
-- `3` 放行端口：选 tcp/udp/两者，端口可逗号分隔多个，可选限制来源 IP
-- `4` 按编号删规则：删到 SSH 端口那条会先警告断连风险；ufw 未启用时拿不到编号，会提示先启用或用 `ufw delete allow <规则>`
-- `5` 启用 / 禁用：禁用需二次确认
-- `6` 改默认策略
-- `7` 改 `ALLOWED_PORTS` 清单：**按清单增删规则**，清单里没有的端口规则自动删、新增的自动放行
-
-日常维护重跑本脚本进菜单即可，不必再记 ufw 子命令。
-
-**6. SSH 加固**
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-ssh.sh)
-# 国内拉不动 → 加速版：
-bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-ssh.sh)
-```
-
-做什么：**首次运行走加固流程，之后进入维护菜单**（重跑即维护，不必记命令）。
-
-加固流程（`1`）：
-
-- 写 `/etc/ssh/sshd_config.d/01-hardening.conf`：改端口（conf 已有则沿用；05 首次已存，无需再输）、禁 root 登录、禁密码认证（只留密钥）、`AllowUsers` 限定管理员、`MaxAuthTries 3`
+- 写 `/etc/ssh/sshd_config.d/01-hardening.conf`：改端口（conf 已有则沿用；菜单 `1` 已存，无需再输）、禁 root 登录、禁密码认证（只留密钥）、`AllowUsers` 限定管理员、`MaxAuthTries 3`
 - 01 前缀抢在云镜像 `50-cloud-init.conf` 之前拿优先权（sshd 配置先出现者优先）
 - 前置自检核对 ufw：新端口未放行直接拒绝执行；迁移期间还要求**旧端口也保持放行**（闸门二确认前不能断退路）
 - 写完依次做：`sshd -t` 语法校验 → `sshd -T` 验证实际生效值（防 drop-in 被覆盖）→ 应用配置 → 确认新端口在监听
@@ -170,11 +150,20 @@ bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto18
 > 1. 写配置前先问"04 之后验证过密钥登录吗"——答 n 直接退出，不改任何配置
 > 2. reload 后：**保持本会话不断开**，新开终端 `ssh -p <新端口> <用户名>@<host>` 验证密钥登录 + root 被拒，**同步改云平台安全组（关旧端口、开新端口）**，回来答 y 后脚本才移除旧端口的临时放行；答 n 则保留旧端口规则并打印恢复指引
 
-其余项：
+菜单项（`0` 退出）：
 
-- `2` 只读体检：生效值 + 加固文件内容 + ufw + drop-in 覆盖检查
-- `3` 改端口 / 管理员用户：写 conf，改端口会提示先跑 05 放行新端口
-- `4` 从 `/root/vps-init-backups/` 挑一份 `01-hardening.conf` 恢复：列表按时新排序，恢复前先备份当前文件，语法校验失败自动回滚；若备份里的端口变了，会先确认 ufw 已放行再问是否重启 sshd
+- `1` 防火墙初始化 / 重新应用（默认拒绝入站 + 放行 SSH 与业务端口）
+- `2` SSH 加固 / 重新应用（写 `01-hardening.conf`，双闸门）
+- `3` 状态总览：ufw 规则 + sshd 生效值 + 加固文件 + drop-in 覆盖检查
+- `4` 放行端口：选 tcp/udp/两者，端口可逗号分隔多个，可选限制来源 IP
+- `5` 按编号删规则：删到 SSH 端口那条会先警告断连风险；ufw 未启用时拿不到编号，会提示先启用或用 `ufw delete allow <规则>`
+- `6` 启用 / 禁用防火墙：禁用需二次确认
+- `7` 改默认策略（入站 / 出站）
+- `8` 改 `ALLOWED_PORTS` 清单：**按清单增删规则**，清单里没有的端口规则自动删、新增的自动放行
+- `9` 改参数（SSH 端口 / 管理员用户）：写 conf，改端口会提示先在菜单 `1` 放行新端口
+- `10` 从 `/root/vps-init-backups/` 挑一份 `01-hardening.conf` 恢复：列表按时新排序，恢复前先备份当前文件，语法校验失败自动回滚；若备份里的端口变了，会先确认 ufw 已放行再问是否重启 sshd
+
+日常维护重跑本脚本进菜单即可，不必再记 ufw/sshd 子命令。
 
 **7. fail2ban**
 
@@ -312,7 +301,7 @@ conf 全部键（维护参考）：
 
 ## 初始化之后（日常维护）
 
-防火墙（ufw 已随系统启动自动生效，重启无需干预）：重跑 `05-ufw.sh` 进菜单即可——`3` 放行、`4` 删规则、`5` 启用/禁用、`6` 默认策略、`7` 业务端口清单，`2` 看详情。习惯命令行也行：
+防火墙（ufw 已随系统启动自动生效，重启无需干预）：重跑 `05-ufw-ssh.sh` 进菜单即可——`4` 放行、`5` 删规则、`6` 启用/禁用、`7` 默认策略、`8` 业务端口清单，`3` 看状态总览。习惯命令行也行：
 
 ```bash
 ufw status numbered          # 查看规则（带编号）
@@ -322,7 +311,7 @@ ufw status                   # 改完确认
 ```
 
 - 放行/关闭端口的同看：**云平台安全组**要同步改，两边不一致就是"服务通不通"排查的常见坑
-- SSH 端口、sudo 策略、公钥等想改：重跑对应脚本（04/05/06），会沿用 conf 里的现有参数，只改你选择修改的项
+- SSH 端口、sudo 策略、公钥等想改：重跑对应脚本（04/05），会沿用 conf 里的现有参数，只改你选择修改的项
 - fail2ban 改参数 / 看封禁 / 解封误封的 IP：重跑 `07-fail2ban.sh` 进菜单（`3` 改参数、`2` 看详情与封禁列表、`4` 封禁或解封）
 - 系统补丁由 `01-base.sh` 装的 `unattended-upgrades` 自动打（security 源）；需要手动全量升级时重跑 `01-base.sh`
 - 定期创建 Snapshot（大改动前后各一份）；12-verify.sh 随时可重跑当体检
@@ -330,6 +319,6 @@ ufw status                   # 改完确认
 ## 脚本约定（开发者视角）
 
 - 每个脚本自包含（公共函数内联，不依赖仓库里其他文件）、幂等、中文交互，单独拉取即可运行
-- 修改系统配置前先备份到 `/root/vps-init-backups/<时间戳>/`，失败不回滚（唯一例外：06 菜单 4 从备份恢复时会先校验 `sshd -t`，失败就退回恢复前的版本）
+- 修改系统配置前先备份到 `/root/vps-init-backups/<时间戳>/`，失败不回滚（唯一例外：`05-ufw-ssh.sh` 菜单 10 从备份恢复时会先校验 `sshd -t`，失败就退回恢复前的版本）
 - 公共函数在脚本间保持一致；改动后运行 `bash tools/sync_check.sh` 自查（输出「一致性 OK」才算通过）。公共块里的关键行（如 `shopt -s inherit_errexit`）也纳入该工具检查——它不属于任何函数体，漏加不会被函数比对拦住
-- 术语表见 [CONTEXT.md](CONTEXT.md)，为什么没有总控脚本见 [docs/adr/0001-no-orchestrator.md](docs/adr/0001-no-orchestrator.md)
+- 术语表见 [CONTEXT.md](CONTEXT.md)；为什么没有总控脚本见 [docs/adr/0001-no-orchestrator.md](docs/adr/0001-no-orchestrator.md)，哪些步骤被合并、步骤号前缀怎么算见 [docs/adr/0002-script-consolidation.md](docs/adr/0002-script-consolidation.md)

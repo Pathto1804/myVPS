@@ -4,7 +4,7 @@
 
 ## 项目是什么
 
-面向 Debian/Ubuntu 个人 VPS 的基础安全初始化脚本集。**没有编排器**——人是编排器：README 提供每步命令（raw 拉取 `bash <(curl -sL .../NN-xxx.sh)`），脚本按步骤号执行（01/04/05/06/07/08/09/12；3/10/11 为手动命令/提示，跳号是有意的）。架构决策见 `docs/adr/0001-no-orchestrator.md`（不要提议加总控脚本/init.sh，已被否决过）。
+面向 Debian/Ubuntu 个人 VPS 的基础安全初始化脚本集。**没有编排器**——人是编排器：README 提供每步命令（raw 拉取 `bash <(curl -sL .../NN-xxx.sh)`），脚本按步骤号执行（01/04/05/07/08/09/12；3/10/11 为手动命令/提示，跳号是有意的）。架构决策见 `docs/adr/0001-no-orchestrator.md`（不要提议加总控脚本/init.sh，已被否决过）。
 
 ## 常用命令
 
@@ -18,9 +18,9 @@ bash tools/sync_check.sh                          # 改公共函数/公共变量
 ## 架构与硬约束
 
 - **自包含脚本**：每个脚本单文件可独立 raw 拉取运行，公共函数内联（不 source 仓库内文件）。`tools/sync_check.sh` 对 24 个公共函数做跨脚本 md5 对比——**改任何公共函数必须同步全部脚本并通过该工具**，否则一致性即失守（2026-09-23 曾出现 9 个函数分歧）。该工具的完整职责见「文档结构」一节。
-- **三条铁律**（README 顶部）：UFW 先于 sshd；密钥先于禁密码；改 sshd 后旧会话不关。06-ssh.sh 用前置自检 + 双闸门落实，改动 05/06/12 时不得破坏此链路。
+- **三条铁律**（README 顶部）：UFW 先于 sshd；密钥先于禁密码；改 sshd 后旧会话不关。`05-ufw-ssh.sh` 用前置自检 + 双闸门落实，改动 `05-ufw-ssh.sh`/`12-verify.sh` 时不得破坏此链路。
 - **配置继承**：跨脚本参数存 `/root/.vps-init.conf`（VPS 本地，600 权限，永不进仓库，见 `.gitignore`）。键表在 README「参数只输一次」节。公共块含 conf_has/conf_read/conf_write/conf_get/conf_update——`conf_update` 有 sed 注入加固（`\ | &` 转义），**改 conf 值一律用它而非裸 sed**。
-- **防锁死设计**：全部脚本强制 TTY（拒绝无人值守/cloud-init）；05 临时放行旧端口（不假设 22，厂商随机端口兼容，conf 键 `OLD_SSH_PORT`），06 闸门确认后才删除；所有写配置前 `backup_file` 到 `/root/vps-init-backups/`，无自动回滚。
+- **防锁死设计**：全部脚本强制 TTY（拒绝无人值守/cloud-init）；`05-ufw-ssh.sh` 初始化时临时放行旧端口（不假设 22，厂商随机端口兼容，conf 键 `OLD_SSH_PORT`），加固流程闸门二确认后才删除；所有写配置前 `backup_file` 到 `/root/vps-init-backups/`，无自动回滚。
 - **统一代码风格基准**：`04-user.sh` 的公共块是事实标准（最大最全）；`08-swap.sh` 自有 helper 体系（`ask_option`/`confirm` 等）与 `set -uo pipefail`（不开 `-e`），保留其风格、不并入公共块，但**已纳入本仓库维护**（2026-09-26 起，改动同样要过双绿 + `sync_check`）；`09-bbr.sh` 参数集为用户本机特调（勿代改）。
 
 ## 工作区规范（保持干净、结构化）
@@ -47,7 +47,7 @@ bash tools/sync_check.sh                          # 改公共函数/公共变量
 
 ## 已知教训（新会话必读）
 
-- **命令替换不继承 errexit**（bash 默认；需 `shopt -s inherit_errexit`，bash ≥ 4.4）：`$(ask_input ...)` 里的 `read || die` 只终止子 shell，外层命令替换照常返回空串，空值会被 `conf_write` 照常写盘（2026-09-29 修 F3 时实测复现：`printf '%s\n' 0 | bash 07-fail2ban.sh` 会写出 `F2B_FINDTIME=''` 与 `findtime = ` 空值行）。7 个脚本（01/04/05/06/07/09/12）在 `set -euo pipefail` 之后统一开启；`08-swap.sh` 不开 `-e`，不适用。`tools/sync_check.sh` 的 `check_line` 拦漏加。
+- **命令替换不继承 errexit**（bash 默认；需 `shopt -s inherit_errexit`，bash ≥ 4.4）：`$(ask_input ...)` 里的 `read || die` 只终止子 shell，外层命令替换照常返回空串，空值会被 `conf_write` 照常写盘（2026-09-29 修 F3 时实测复现：`printf '%s\n' 0 | bash 07-fail2ban.sh` 会写出 `F2B_FINDTIME=''` 与 `findtime = ` 空值行）。6 个脚本（01/04/05/07/09/12）在 `set -euo pipefail` 之后统一开启；`08-swap.sh` 不开 `-e`，不适用。`tools/sync_check.sh` 的 `check_line` 拦漏加。
 - **`set -o pipefail` 下命令替换里的管道失败即中断**：`sed ... | head -n 1` 在 conf 缺失或 head 早退（SIGPIPE）时返回非零——公共块 `conf_read` 已加 `|| true`（输出空串），其余同类写法（`sshd_port`/`jail_val`/`fw_*`）也都带 `|| true`，新增同类 helper 时照此办理。`12-verify.sh` 也复用同一个 `conf_read`（曾内联 4 处 `sed|head`：conf 里同名键重复时会 141 中止、连报告都不生成）。
 - **多行带转义的 bash 块禁用 python/perl 程序化替换**（本仓库历史上连续多次产出损坏代码：字面 `\n`、0x01 控制字节、函数体截断）。改脚本优先用 Edit 逐块，程序化操作后立刻 `bash -n` + shellcheck。
 - Windows 环境注意：`.gitattributes` 强制 LF（CRLF 会让 raw 拉取的脚本在 Linux 上炸）；python subprocess 读 git 输出要显式 `encoding='utf-8'`（本地默认 GBK）。
