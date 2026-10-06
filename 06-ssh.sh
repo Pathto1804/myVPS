@@ -115,27 +115,28 @@ v_user() {
   return 0
 }
 
-# ==================== sshd / ufw 辅助 ====================
-
-SSHD_CFG="/etc/ssh/sshd_config"
-SSHD_D="/etc/ssh/sshd_config.d"
-HARD="${SSHD_D}/01-hardening.conf"
-
 conf_val() {   # 读 conf 值；缺失输出空串
   local v=""
   if conf_has "$1"; then v="$(conf_read "$1")"; fi
   printf '%s' "${v}"
 }
 
-rand_port() { shuf -i 10000-65535 -n 1 2>/dev/null || printf '%s' 54321; }
-
 sshd_port() {   # sshd 实际生效端口；读不到输出空串
-  # awk 不早退（`exit` 会让 sshd 收 SIGPIPE，pipefail 下赋值失败）；|| true 让失败输出空串
+  # 不用 `awk '/^port /{print $2; exit}'`：awk 提前退出会让 sshd 收到 SIGPIPE（141），
+  # 在 set -o pipefail 下整条管道非零 → 赋值失败 → ERR trap 裸奔退出。
   local p
   p="$(sshd -T 2>/dev/null | awk '/^port /{p=$2} END{print p}' | tr -d '\r')" || true
   [[ "${p}" =~ ^[0-9]+$ ]] || { printf ''; return 0; }
   printf '%s' "${p}"
 }
+
+rand_port() { shuf -i 10000-65535 -n 1 2>/dev/null || printf '%s' 54321; }
+
+# ==================== sshd / ufw 辅助 ====================
+
+SSHD_CFG="/etc/ssh/sshd_config"
+SSHD_D="/etc/ssh/sshd_config.d"
+HARD="${SSHD_D}/01-hardening.conf"
 
 ssh_eff() {   # sshd -T 全量输出；失败输出空串
   local out

@@ -123,10 +123,6 @@ v_ip() {
   return 0
 }
 
-# ==================== fail2ban 辅助 ====================
-
-JAIL="/etc/fail2ban/jail.local"
-
 conf_val() {   # 读 conf 值；缺失输出空串
   local v=""
   if conf_has "$1"; then v="$(conf_read "$1")"; fi
@@ -141,6 +137,10 @@ sshd_port() {   # sshd 实际生效端口；读不到输出空串
   [[ "${p}" =~ ^[0-9]+$ ]] || { printf ''; return 0; }
   printf '%s' "${p}"
 }
+
+# ==================== fail2ban 辅助 ====================
+
+JAIL="/etc/fail2ban/jail.local"
 
 f2b_installed() { command -v fail2ban-client >/dev/null 2>&1; }
 

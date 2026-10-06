@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-FUNCS="log warn die err_trap require_root require_tty require_distro ask_yesno ask_input ask_input_def backup_file conf_has conf_read conf_write conf_get conf_update v_any v_yesno v_user v_pubkey v_ssh_port v_ports_list"
+FUNCS="log warn die err_trap require_root require_tty require_distro ask_yesno ask_input ask_input_def backup_file conf_has conf_read conf_write conf_get conf_update v_any v_yesno v_user v_pubkey v_ssh_port v_ports_list conf_val sshd_port rand_port"
 SCRIPTS="01-update.sh 02-tools.sh 04-user.sh 05-ufw.sh 06-ssh.sh 07-fail2ban.sh 09-bbr.sh 12-verify.sh"
 declare -i BAD=0
 for fn in $FUNCS; do

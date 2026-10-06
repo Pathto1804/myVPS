@@ -142,8 +142,6 @@ v_ports_list() {
   return 0
 }
 
-# ==================== 防火墙辅助 ====================
-
 conf_val() {   # 读 conf 值；缺失输出空串
   local v=""
   if conf_has "$1"; then v="$(conf_read "$1")"; fi
@@ -160,6 +158,8 @@ sshd_port() {   # sshd 实际生效端口；读不到输出空串
 }
 
 rand_port() { shuf -i 10000-65535 -n 1 2>/dev/null || printf '%s' 54321; }
+
+# ==================== 防火墙辅助 ====================
 
 fw_status_numbered() {   # `ufw status numbered` 原始输出（含 Status 与带编号的规则；注意它不含 Default 行）
   # 不写成 `ufw status | grep -q`：grep 匹配即退出会让 ufw 收 SIGPIPE（141），
