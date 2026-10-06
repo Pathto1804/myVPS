@@ -42,7 +42,11 @@
 
 > 想固定版本：把命令里的 `main` 换成发布 tag。断点续跑：初始化到一半 SSH 断了，重连后从对应步骤接着跑，已完成的脚本重跑会自动跳过。
 >
-> **执行方式：先 `sudo -i` 提权到 root，下面所有命令在 root 会话里直接运行**（脚本自带 root/TTY 检查）。不要以普通用户身份 `sudo bash <(curl …)`——sudo 会关闭额外文件描述符，报 `/dev/fd/63: No such file or directory`；root 会话里也用 `bash <(curl …)`，别再套 `sudo`。curl 统一带 `-S`，下载失败会明确报错而不是无声中断。
+> **执行方式**：先 `sudo -i` 提权到 root，下面所有命令在 root 会话里直接运行（脚本自带 root/TTY 检查）。
+>
+> - 不要以普通用户身份 `sudo bash <(curl …)`——sudo 会关闭额外文件描述符，报 `/dev/fd/63: No such file or directory`
+> - root 会话里也用 `bash <(curl …)`，别再套 `sudo`
+> - curl 统一带 `-S`，下载失败会明确报错而不是无声中断
 
 > **国内服务器拉不动 GitHub**（卡住、Connection reset、几十 KB/s）：下面每条命令都附了一行**加速版**，就是在原始 URL 前加一层第三方加速前缀（默认用 `ghproxy.net`）。可用前缀不止一个，挂了/返回旧版就换下一个（2026-09-26 逐个实测，返回的都是脚本原文）：
 >
@@ -56,7 +60,12 @@
 >
 > 也可整段换成 jsDelivr CDN：把 `https://raw.githubusercontent.com/Pathto1804/myVPS/main/` 换成 `https://cdn.jsdelivr.net/gh/Pathto1804/myVPS@main/`（按分支取有缓存约 12h，要准就用 tag）。
 >
-> 两点提醒：**加速站是第三方**，脚本内容经它中转，在意就本机 `curl` 下载 → `scp` 上传 → `sudo bash 文件名`；**缓存滞后哪家都有**——刚推送的改动可能几分钟后才在代理上生效，重要脚本拉下来先 `bash -n` 或读一遍再用。按开头免责声明的要求，无论哪条路，执行前先读一遍。
+> 两点提醒：
+>
+> - **加速站是第三方**：脚本内容经它中转，在意就本机 `curl` 下载 → `scp` 上传 → `sudo bash 文件名`
+> - **缓存滞后哪家都有**：刚推送的改动可能几分钟后才在代理上生效，重要脚本拉下来先 `bash -n` 或读一遍再用
+>
+> 按开头免责声明的要求，无论哪条路，执行前先读一遍。
 
 **1. 系统更新**
 
@@ -66,7 +75,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-upd
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/01-update.sh)
 ```
 
-做什么：`apt update` + `apt full-upgrade`，把系统补到最新。升级后若需要重启（通常是内核更新），脚本会询问，选 y 自动重启，重连后从第 2 步继续。
+做什么：
+
+- `apt update` + `apt full-upgrade`，把系统补到最新
+- 升级后若需要重启（通常是内核更新），脚本会询问；选 y 自动重启，重连后从第 2 步继续
 
 **2. 基础工具**
 
@@ -76,7 +88,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/02-too
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/02-tools.sh)
 ```
 
-做什么：装必要项 + 常用实用工具（`sudo ca-certificates curl wget gnupg ufw fail2ban unattended-upgrades vim nano unzip htop needrestart ncdu mtr-tiny bind9-dnsutils`），另问一句"还要装什么"，默认 `jq tmux lsof rsync zip`，不需要留空。其中 `needrestart` 补上自动更新后重启受影响服务这一环（缺它则 libc/openssl 补丁装了不生效）——装完之后在有终端的 apt 里（含第 10 步的 docker 一键脚本）会多问一句要重启哪些服务，答 `i` 立即重启、`l` 只看清单，脚本内部为非交互所以只列清单；`ncdu`/`mtr-tiny`/`bind9-dnsutils` 是磁盘、链路、DNS 三件套。tcpdump/strace/sysstat 等有提权面或需额外启用的诊断类仍不预装，用到再装。
+做什么：
+
+- 装必要项 + 常用实用工具：`sudo ca-certificates curl wget gnupg ufw fail2ban unattended-upgrades vim nano unzip htop needrestart ncdu mtr-tiny bind9-dnsutils`
+- 另问一句"还要装什么"，默认 `jq tmux lsof rsync zip`，不需要留空
+- **needrestart**：补上自动更新后重启受影响服务这一环（缺它则 libc/openssl 补丁装了不生效）。装完之后在有终端的 apt 里（含第 10 步的 docker 一键脚本）会多问一句要重启哪些服务，答 `i` 立即重启、`l` 只看清单；脚本内部为非交互所以只列清单
+- **ncdu / mtr-tiny / bind9-dnsutils**：磁盘、链路、DNS 三件套
+- tcpdump/strace/sysstat 等有提权面或需额外启用的诊断类仍不预装，用到再装
 
 **3. 系统基础配置**（手动）
 
@@ -86,7 +104,10 @@ timedatectl set-timezone Asia/Shanghai
 timedatectl                            # 确认 NTP service active
 ```
 
-做什么：设置主机名（可跳过）、时区，并确认系统时间同步在跑——时间不准会让 fail2ban 的封禁窗口、证书校验出问题。
+做什么：
+
+- 设置主机名（可跳过）、时区
+- 确认系统时间同步在跑——时间不准会让 fail2ban 的封禁窗口、证书校验出问题
 
 **4. 创建管理员用户 + 公钥**
 
@@ -96,24 +117,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-use
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/04-user.sh)
 ```
 
-做什么：**菜单式**——选好目标用户（新建或管理已有，conf 记住上次操作的用户）后进入主菜单，一次只做一件事，`0` 退出：
+做什么：**菜单式**——选好目标用户（新建或管理已有，conf 记住上次操作的用户）后进入主菜单，一次只做一件事，`0` 退出。
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 用户管理 · wildgrass
-──────────────────────────────
-  登录密码   已设置 ✓
-  sudo 免密  开（免密）
-  公钥       2 个
-──────────────────────────────
-  1) 设置/修改登录密码
-  2) sudo 免密 开↔关
-  3) 管理公钥（追加/删除）
-  0) 退出
-──────────────────────────────
-```
+菜单项：
 
-1=设置/修改登录密码（可选**随机生成**——显示一次请立即保存，不存 conf；或转发 `passwd` 原生交互自己输入）；2=sudo 免密切换（确认一次后自动处理 sudoers 文件的写入与删除，`visudo -c` 校验兜底）；3=公钥追加/删除（每笔改动立即重写 `~/.ssh/authorized_keys`，权限 700/600、属主正确），同步存入 conf 供复用。用户无密码时状态行标 `⚠`，退出前再提醒一次（否则 sudo 密码模式无法验证）。
+- **1 设置/修改登录密码**：可选**随机生成**（显示一次请立即保存，不存 conf），或转发 `passwd` 原生交互自己输入
+- **2 sudo 免密切换**：确认一次后自动处理 sudoers 文件的写入与删除，`visudo -c` 校验兜底
+- **3 管理公钥**（追加/删除）：每笔改动立即重写 `~/.ssh/authorized_keys`，权限 700/600、属主正确，同步存入 conf 供复用
+
+用户无密码时状态行标 `⚠`，退出前再提醒一次（否则 sudo 密码模式无法验证）。
 
 > **闸门一**：新开终端验证 `ssh <用户名>@<host>` 密钥登录成功 + `sudo -v` 通过。**不通过，禁止执行第 5 步之后。**
 
@@ -125,30 +137,25 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/05-ufw.sh)
 ```
 
-做什么：**菜单式**——首次运行自动执行初始化，之后进入维护菜单，一次只做一件事，`0` 退出：
+做什么：**菜单式**——首次运行自动执行初始化，之后进入维护菜单，一次只做一件事，`0` 退出。
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 防火墙管理 · ufw
-───────────────────────────────────
-  防火墙      active ✓
-  默认策略    入站 deny / 出站 allow
-  规则数      5
-  SSH 端口    54321（sshd 实际 22）
-  业务端口    80,443
-───────────────────────────────────
-  1) 初始化 / 重新应用配置（默认拒绝入站 + 放行 SSH 与业务端口）
-  2) 查看规则详情（verbose + 编号）
-  3) 放行端口（allow，可限来源 IP）
-  4) 删除规则（按编号）
-  5) 启用 / 禁用防火墙
-  6) 修改默认策略（入站 / 出站）
-  7) 修改业务端口清单（conf ALLOWED_PORTS，并按清单增删规则）
-  0) 退出
-───────────────────────────────────
-```
+初始化（`1`，首次运行自动跑）：
 
-初始化（`1`，首次运行自动跑）：ufw 默认拒绝入站、允许出站；放行新 SSH 端口（首次询问时**回车即用随机端口**，也可自己输入）；**迁移期临时放行当前 SSH 端口**（自动从 sshd 读取，22 或厂商随机端口均可，第 6 步完成前旧端口还得用；sshd 已在新端口上则不建这条规则）；按需放行业务端口；**启用前自检新端口已在放行列表**，未放行就拒绝启用（防锁死；ufw 未启用时 `ufw status` 不列规则，故该自检读 `ufw show added`）。其余项：`3`=放行端口（选 tcp/udp/两者，端口可逗号分隔多个，可选限制来源 IP）；`4`=按编号删规则（删到 SSH 端口那条会先警告断连风险；ufw 未启用时拿不到编号，会提示先启用或用 `ufw delete allow <规则>`）；`5`=启用/禁用（禁用需二次确认）；`6`=改默认策略；`7`=改 `ALLOWED_PORTS` 清单并**按清单增删规则**（清单里没有的端口规则自动删、新增的自动放行）。日常维护重跑本脚本进菜单即可，不必再记 ufw 子命令。
+- ufw 默认拒绝入站、允许出站
+- 放行新 SSH 端口（首次询问时**回车即用随机端口**，也可自己输入）
+- **迁移期临时放行当前 SSH 端口**：自动从 sshd 读取，22 或厂商随机端口均可，第 6 步完成前旧端口还得用；sshd 已在新端口上则不建这条规则
+- 按需放行业务端口
+- **启用前自检**：新端口已在放行列表，未放行就拒绝启用（防锁死；ufw 未启用时 `ufw status` 不列规则，故该自检读 `ufw show added`）
+
+其余项：
+
+- `3` 放行端口：选 tcp/udp/两者，端口可逗号分隔多个，可选限制来源 IP
+- `4` 按编号删规则：删到 SSH 端口那条会先警告断连风险；ufw 未启用时拿不到编号，会提示先启用或用 `ufw delete allow <规则>`
+- `5` 启用 / 禁用：禁用需二次确认
+- `6` 改默认策略
+- `7` 改 `ALLOWED_PORTS` 清单：**按清单增删规则**，清单里没有的端口规则自动删、新增的自动放行
+
+日常维护重跑本脚本进菜单即可，不必再记 ufw 子命令。
 
 **6. SSH 加固**
 
@@ -158,35 +165,26 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-ssh
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/06-ssh.sh)
 ```
 
-做什么：**首次运行走加固流程，之后进入维护菜单**（重跑即维护，不必记命令）：
+做什么：**首次运行走加固流程，之后进入维护菜单**（重跑即维护，不必记命令）。
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- SSH 加固 · wildgrass
-───────────────────────────────────
-  端口(生效)      54321
-  root 登录       no
-  密码登录        no
-  AllowUsers      wildgrass
-  MaxAuthTries    3
-  加固文件        已写入 ✓
-  ufw             54321/tcp 已放行 ✓
-───────────────────────────────────
-  1) 应用 / 重新应用加固配置（写 01-hardening.conf，双闸门）
-  2) 查看当前生效状态（sshd -T / 加固文件 / ufw / drop-in 覆盖）
-  3) 修改参数（SSH 端口 / 管理员用户，写入 conf）
-  4) 从备份恢复 01-hardening.conf
-  0) 退出
-───────────────────────────────────
-```
+加固流程（`1`）：
 
-加固流程（`1`）：写入 `/etc/ssh/sshd_config.d/01-hardening.conf`——改端口（conf 已有则沿用；05 首次已存，无需再输）、禁 root 登录、禁密码认证（只留密钥）、`AllowUsers` 限定管理员、`MaxAuthTries 3`。01 前缀抢在云镜像 `50-cloud-init.conf` 之前拿优先权（sshd 配置先出现者优先）。前置自检会核对 ufw：新端口未放行直接拒绝执行；迁移期间还会要求**旧端口也保持放行**（闸门二确认前不能断退路）。写完 `sshd -t` 语法校验、`sshd -T` 验证实际生效值（防 drop-in 被覆盖）、应用配置、确认新端口在监听。**Ubuntu 22.10+ 默认的 `ssh.socket` 套接字激活会让 `Port` 不生效（`sshd -T` 显示已改、实际还在听 22）**，脚本检测到会自动切回标准 `ssh.service` 模式再重启。已在目标端口上时按"无迁移"处理，不再动旧端口规则。
+- 写 `/etc/ssh/sshd_config.d/01-hardening.conf`：改端口（conf 已有则沿用；05 首次已存，无需再输）、禁 root 登录、禁密码认证（只留密钥）、`AllowUsers` 限定管理员、`MaxAuthTries 3`
+- 01 前缀抢在云镜像 `50-cloud-init.conf` 之前拿优先权（sshd 配置先出现者优先）
+- 前置自检核对 ufw：新端口未放行直接拒绝执行；迁移期间还要求**旧端口也保持放行**（闸门二确认前不能断退路）
+- 写完依次做：`sshd -t` 语法校验 → `sshd -T` 验证实际生效值（防 drop-in 被覆盖）→ 应用配置 → 确认新端口在监听
+- **Ubuntu 22.10+ 默认的 `ssh.socket` 套接字激活会让 `Port` 不生效**（`sshd -T` 显示已改、实际还在听 22）：脚本检测到会自动切回标准 `ssh.service` 模式再重启
+- 已在目标端口上时按"无迁移"处理，不再动旧端口规则
 
 > **闸门二**（脚本两次停下确认）：
 > 1. 写配置前先问"04 之后验证过密钥登录吗"——答 n 直接退出，不改任何配置
 > 2. reload 后：**保持本会话不断开**，新开终端 `ssh -p <新端口> <用户名>@<host>` 验证密钥登录 + root 被拒，**同步改云平台安全组（关旧端口、开新端口）**，回来答 y 后脚本才移除旧端口的临时放行；答 n 则保留旧端口规则并打印恢复指引
 
-菜单其余项：`2`=只读体检（生效值 + 加固文件内容 + ufw + drop-in 覆盖检查）；`3`=改端口/管理员用户（写 conf，改端口会提示先跑 05 放行新端口）；`4`=从 `/root/vps-init-backups/` 挑一份 `01-hardening.conf` 恢复（列表按时新排序，恢复前先备份当前文件，语法校验失败自动回滚，若备份里的端口变了会先确认 ufw 已放行再问是否重启 sshd）。
+其余项：
+
+- `2` 只读体检：生效值 + 加固文件内容 + ufw + drop-in 覆盖检查
+- `3` 改端口 / 管理员用户：写 conf，改端口会提示先跑 05 放行新端口
+- `4` 从 `/root/vps-init-backups/` 挑一份 `01-hardening.conf` 恢复：列表按时新排序，恢复前先备份当前文件，语法校验失败自动回滚；若备份里的端口变了，会先确认 ufw 已放行再问是否重启 sshd
 
 **7. fail2ban**
 
@@ -196,26 +194,24 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/07-fai
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/07-fail2ban.sh)
 ```
 
-做什么：**菜单式**——首次运行自动安装并配置，之后进入维护菜单，一次只做一件事，`0` 退出：
+做什么：**菜单式**——首次运行自动安装并配置，之后进入维护菜单，一次只做一件事，`0` 退出。
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- fail2ban · sshd jail
-───────────────────────────────────
-  服务        active ✓
-  jail 状态   运行中 ✓（封禁 0 个）
-  参数        bantime 86400 / findtime 600 / maxretry 3
-  端口        54321 = sshd 实际 ✓
-───────────────────────────────────
-  1) 应用 / 重新应用配置（安装 fail2ban + 写 jail.local + 重启 + 验证）
-  2) 查看状态详情（jail.local 内容 / 封禁列表 / 服务日志）
-  3) 修改参数（封禁时长 / 统计窗口 / 重试次数 → conf，可选立即应用）
-  4) 封禁 / 解封 IP
-  0) 退出
-───────────────────────────────────
-```
+应用配置（`1`，首次运行自动跑）：
 
-应用配置（`1`，首次运行自动跑）：写 `/etc/fail2ban/jail.local`——sshd jail 监听**新端口**（不写则默认盯 22，形同虚设）、`backend = systemd`（兼容 Debian 12 无 auth.log 与 Ubuntu 24.04+）；默认激进档封 24h / 窗口 10min / 3 次触发，首次运行逐项询问（回车取默认）。写文件前自动备份到 `/root/vps-init-backups/`。**jail 端口必须与 sshd 实际端口一致**：不一致、或读不到 sshd 实际端口（`sshd -T` 失败）时**拒绝写入**并打印原因——不会拿一个编造的默认端口凑数，宁可 fail closed 也不让 fail2ban 去盯一个 sshd 没监听的端口（那是静默失效）。重启后轮询等 jail 就绪（fail2ban 读配置、起 backend 需 1~2 秒，立刻查会误报 `Jail 'sshd' does not exist`），10 秒未就绪即报错退出。退出前还会核对 jail 在跑且 jail 端口 == sshd 实际端口，都满足才打印"第 7 步完成"；否则打印"第 7 步未完成"并以非零退出（12-verify.sh 在同样状态下也会报红）。菜单其余项：`2`=只读详情（`jail.local` 内容 + `fail2ban-client status sshd` 的封禁列表 + 服务日志末 20 行）；`3`=改封禁时长/统计窗口/重试次数（写 conf，末尾问一句是否立即应用到 `jail.local`）；`4`=手动封禁/解封 IP（`fail2ban-client set sshd banip|unbanip`，仅接受 IPv4）。表头四行是实时状态：服务是否 active、jail 是否运行中及当前封禁数、`jail.local` 里的生效参数（与 conf 不一致时标注"按 1 应用"）、jail 端口与 sshd 实际端口是否一致（读不到时明确显示"未知"而非断言不一致）。
+- 写 `/etc/fail2ban/jail.local`：sshd jail 监听**新端口**（不写则默认盯 22，形同虚设）、`backend = systemd`（兼容 Debian 12 无 auth.log 与 Ubuntu 24.04+）
+- 默认激进档：封 24h / 窗口 10min / 3 次触发，首次运行逐项询问（回车取默认）
+- 写文件前自动备份到 `/root/vps-init-backups/`
+- **jail 端口必须与 sshd 实际端口一致**：不一致、或读不到 sshd 实际端口（`sshd -T` 失败）时**拒绝写入**并打印原因——不会拿一个编造的默认端口凑数，宁可 fail closed 也不让 fail2ban 去盯一个 sshd 没监听的端口（那是静默失效）
+- 重启后轮询等 jail 就绪（fail2ban 读配置、起 backend 需 1~2 秒，立刻查会误报 `Jail 'sshd' does not exist`），10 秒未就绪即报错退出
+- 退出前核对 jail 在跑且 jail 端口 == sshd 实际端口：都满足才打印"第 7 步完成"；否则打印"第 7 步未完成"并以非零退出（12-verify.sh 在同样状态下也会报红）
+
+菜单项：
+
+- `2` 只读详情：`jail.local` 内容 + `fail2ban-client status sshd` 的封禁列表 + 服务日志末 20 行
+- `3` 改封禁时长 / 统计窗口 / 重试次数：写 conf，末尾问一句是否立即应用到 `jail.local`
+- `4` 手动封禁 / 解封 IP：`fail2ban-client set sshd banip|unbanip`，仅接受 IPv4
+
+表头四行是实时状态：服务是否 active、jail 是否运行中及当前封禁数、`jail.local` 里的生效参数（与 conf 不一致时标注"按 1 应用"）、jail 端口与 sshd 实际端口是否一致（读不到时明确显示"未知"而非断言不一致）。
 
 **8. Swap**
 
@@ -225,7 +221,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/08-swa
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/08-swap.sh)
 ```
 
-做什么：交互式管理 swap 文件——查看现状 / 创建（写 fstab 持久化）/ 调整 swappiness / 删除，自带 fstab 备份回滚。完成后 `free -h` 与 `swapon --show` 确认。
+做什么：
+
+- 交互式管理 swap 文件：查看现状 / 创建（写 fstab 持久化）/ 调整 swappiness / 删除
+- 自带 fstab 备份回滚
+- 完成后 `free -h` 与 `swapon --show` 确认
 
 **9. BBR + TCP 调优**
 
@@ -235,7 +235,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/09-bbr
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/09-bbr.sh)
 ```
 
-做什么：写入 `/etc/sysctl.d/99-bbr.conf`——开启 BBR 拥塞控制 + fq 队列，附带一组 TCP 缓冲/连接参数调优；`sysctl -p` 应用后验证 `tcp_congestion_control = bbr`。个别键若被新内核移除（如 `tcp_fack`）仅警告不中断。
+做什么：
+
+- 写 `/etc/sysctl.d/99-bbr.conf`：开启 BBR 拥塞控制 + fq 队列，附带一组 TCP 缓冲/连接参数调优
+- `sysctl -p` 应用后验证 `tcp_congestion_control = bbr`
+- 个别键若被新内核移除（如 `tcp_fack`）仅警告不中断
 
 > 注意：仓库里的 `09-bbr.sh` 参数是根据我自己的 VPS（线路、内存、用途）特调的，**不一定适合你的机器**。想要匹配自己 VPS 的脚本，可去 <https://omnitt.com> 获取；从外部站点拉脚本执行前，请**自己检查脚本内容的安全性**再运行。
 
@@ -245,7 +249,11 @@ bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto18
 cat /etc/apt/apt.conf.d/20auto-upgrades   # 两行都应为 "1"
 ```
 
-做什么：启用安全补丁自动安装，VPS 不常登录，这是廉价保险。**02-tools.sh 已自动写入并启用**（装包不等于启用——apt 装完该文件默认是两行 `"0"`，等于关闭）。这里只是复核；若显示 `"0"`，说明 02 没跑到或被你覆盖过，重跑 02 即可。
+做什么：
+
+- 启用安全补丁自动安装（VPS 不常登录，这是廉价保险）
+- **02-tools.sh 已自动写入并启用**（装包不等于启用——apt 装完该文件默认是两行 `"0"`，等于关闭）
+- 这里只是复核：若显示 `"0"`，说明 02 没跑到或被你覆盖过，重跑 02 即可
 
 **11. Docker**（仅提示，不自动安装）
 
@@ -257,7 +265,10 @@ bash <(curl -fsSL https://linuxmirrors.cn/docker.sh)
 
 > ⚠️ 脚本会问"是否关闭防火墙"——**选否**（或直接加 `--close-firewall false`），否则我们刚配好的 ufw 会被关掉。
 
-不想交互可 `--source mirrors.aliyun.com --source-registry docker.1ms.run --install-latest true --close-firewall false` 全自动跳过选择。或按官方仓库安装指引（docs.docker.com，注意核对最新写法）。`docker` 组权限等价于 root，与禁 root 登录的目标有冲突，知情即可。装完用 `docker run --rm hello-world` 验证。完整交互与参数见[手动教程](docs/tutorial.md#11-docker提示)。
+- 不想交互：`--source mirrors.aliyun.com --source-registry docker.1ms.run --install-latest true --close-firewall false` 全自动跳过选择；或按官方仓库安装指引（docs.docker.com，注意核对最新写法）
+- `docker` 组权限等价于 root，与禁 root 登录的目标有冲突，知情即可
+- 装完用 `docker run --rm hello-world` 验证
+- 完整交互与参数见[手动教程](docs/tutorial.md#11-docker提示)
 
 **12–13. 终检 + 归档**
 
@@ -267,7 +278,14 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-ver
 bash <(curl -fsSL https://ghproxy.net/https://raw.githubusercontent.com/Pathto1804/myVPS/main/12-verify.sh)
 ```
 
-做什么：逐项做绿/红终检——sshd 实际生效值（端口/禁密码/禁 root）、ufw 规则（含旧端口已关）、fail2ban jail（jail 未运行、或 `jail.local` 的 `port` ≠ sshd 实际端口，都判红；与 07 的 fail-closed 口径一致）、自动更新与 needrestart（升级后重启受影响服务，缺它则库补丁不生效）为红灯项；swap / BBR / NTP / 磁盘 / 重启标记为黄灯提示。报告 + 配置摘要（端口/用户/放行端口/fail2ban 参数）写入 `/root/vps-init-report.md`，可作归档记录。有红灯退出码 1，修复后重跑。全绿后：核对报告 → 云平台创建最终 Snapshot。
+做什么：
+
+- 逐项做绿/红终检
+  - 红灯项：sshd 实际生效值（端口/禁密码/禁 root）、ufw 规则（含旧端口已关）、fail2ban jail（jail 未运行、或 `jail.local` 的 `port` ≠ sshd 实际端口，都判红；与 07 的 fail-closed 口径一致）、自动更新与 needrestart（升级后重启受影响服务，缺它则库补丁不生效）
+  - 黄灯提示：swap / BBR / NTP / 磁盘 / 重启标记
+- 报告 + 配置摘要（端口/用户/放行端口/fail2ban 参数）写入 `/root/vps-init-report.md`，可作归档记录
+- 有红灯退出码 1，修复后重跑
+- 全绿后：核对报告 → 云平台创建最终 Snapshot
 
 ## 参数只输一次
 
@@ -295,7 +313,11 @@ conf 全部键（维护参考）：
 - 所有脚本改系统配置前，先把原文件备份到 `/root/vps-init-backups/<时间戳>/`。脚本执行失败时会把备份路径打印出来
 - SSH 疑似锁死：用云平台控制台 / VNC 登录，从备份目录还原 `sshd_config.d` 相关文件，再 `systemctl reload ssh`
 - 以上都不行，步骤 0 的 Snapshot 是最终防线
-- 拉取/执行方式的坑：`sudo bash <(curl …)` 会因 sudo 关闭继承的文件描述符报 `/dev/fd/63: No such file or directory`；`curl … | bash` 会让脚本因 `BASH_SOURCE` 未定义 + stdin 非终端而拒绝执行。两种解法：**按本页标准做法先 `sudo -i` 提权**；必须留在 sudo 环境时用 `sudo bash -c 'bash <(curl -fsSL <URL>)'`（FD 在 sudo 之后的 bash 内部创建，不会丢）。下载失败若无声无息，确认命令用的是 `-sSL`（`-S` 才会打印错误）
+- 拉取 / 执行方式的坑：
+  - `sudo bash <(curl …)`：sudo 关闭继承的文件描述符，报 `/dev/fd/63: No such file or directory`
+  - `curl … | bash`：脚本因 `BASH_SOURCE` 未定义 + stdin 非终端而拒绝执行
+  - 两种解法：**按本页标准做法先 `sudo -i` 提权**；必须留在 sudo 环境时用 `sudo bash -c 'bash <(curl -fsSL <URL>)'`（FD 在 sudo 之后的 bash 内部创建，不会丢）
+  - 下载失败若无声无息，确认命令用的是 `-sSL`（`-S` 才会打印错误）
 - 网络原因拉不到脚本：先在本地下载好，`scp` 上去再 `sudo bash 脚本名` 执行，效果一样
 
 ## 初始化之后（日常维护）
