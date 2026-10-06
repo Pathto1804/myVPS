@@ -4,7 +4,7 @@
 
 ## 项目是什么
 
-面向 Debian/Ubuntu 个人 VPS 的基础安全初始化脚本集。**没有编排器**——人是编排器：README 提供每步命令（raw 拉取 `bash <(curl -sL .../NN-xxx.sh)`），脚本按步骤号执行（01/04/05/07/08/09/12；3/10/11 为手动命令/提示，跳号是有意的）。架构决策见 `docs/adr/0001-no-orchestrator.md`（不要提议加总控脚本/init.sh，已被否决过）。
+面向 Debian（兼容 Ubuntu）个人 VPS 的基础安全初始化脚本集。**没有编排器**——人是编排器：README 提供每步命令（raw 拉取 `bash <(curl -sL .../NN-xxx.sh)`），脚本按步骤号执行（01/04/05/07/08/09/12；3/10/11 为手动命令/提示，跳号是有意的）。架构决策见 `docs/adr/0001-no-orchestrator.md`（不要提议加总控脚本/init.sh，已被否决过）。**平台优先级：Debian 一等（真机验收基线 Debian 12 bookworm），Ubuntu 20.04+ 兼容但未逐版本验证**——涉及发行版差异的改动优先在 Debian 上验证，Ubuntu 专属分支（如 `ssh.socket`）保留但需显式标注。
 
 ## 常用命令
 

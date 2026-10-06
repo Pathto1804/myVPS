@@ -37,7 +37,7 @@ bash <(curl -fsSL https://linuxmirrors.cn/main.sh)
 2. 选协议——有 HTTPS 选 HTTPS
 3. 问"是否备份已有源"选是；问"是否更新软件源"和"是否升级软件包"——如果接下来要做步骤 1，这里可以直接选否（步骤 1 会做）；问清理缓存随意
 
-脚本会自动改 `/etc/apt/sources.list`（新版 Ubuntu/Debian 是 `sources.list.d/ubuntu.sources`），改动前自动备份为 `.bak`。
+脚本会自动改 `/etc/apt/sources.list`（Debian 13 起是 `sources.list.d/debian.sources`，Ubuntu 24.04 起是 `ubuntu.sources`），改动前自动备份为 `.bak`。
 
 不想一步步点，可以直接用参数跳过去（完整列表跑 `--help` 查看）：
 
@@ -89,7 +89,7 @@ apt install -y sudo ca-certificates curl wget gnupg ufw fail2ban \
   bind9-dnsutils jq tmux lsof rsync zip
 ```
 
-一条装齐（必要项 + 常用实用工具）。其中 `needrestart` 补上自动更新后重启受影响服务这一环（缺它则 libc/openssl 补丁装了不生效）——装完之后在有终端的 apt 里（含第 11 步的 docker 一键脚本）会多问一句要重启哪些服务，答 `i` 立即重启、`l` 只看清单；`ncdu`/`mtr-tiny`/`bind9-dnsutils` 是磁盘、链路、DNS 三件套。tcpdump/strace/sysstat 等有提权面或需额外启用的诊断类仍不预装，用到再装。需要 Debian 11+ / Ubuntu 20.04+（更老的系统没有 `bind9-dnsutils`）。
+一条装齐（必要项 + 常用实用工具）。其中 `needrestart` 补上自动更新后重启受影响服务这一环（缺它则 libc/openssl 补丁装了不生效）——装完之后在有终端的 apt 里（含第 11 步的 docker 一键脚本）会多问一句要重启哪些服务，答 `i` 立即重启、`l` 只看清单；`ncdu`/`mtr-tiny`/`bind9-dnsutils` 是磁盘、链路、DNS 三件套。tcpdump/strace/sysstat 等有提权面或需额外启用的诊断类仍不预装，用到再装。需要 Debian 12 / 13（验收基线 Debian 12；Debian 11 与 Ubuntu 20.04+ 理论可用但未验证——更老的系统没有 `bind9-dnsutils`）。
 
 ## 3. 系统基础配置
 

@@ -1,6 +1,6 @@
 # myVPS — VPS 初始化脚本集
 
-面向 Debian/Ubuntu 新 VPS 的基础安全初始化脚本集的领域语言。每个脚本自包含、幂等，由人工按 README 流程执行，不经任何总控脚本调度。
+面向 Debian（兼容 Ubuntu）新 VPS 的基础安全初始化脚本集的领域语言。每个脚本自包含、幂等，由人工按 README 流程执行，不经任何总控脚本调度。
 
 ## Language
 
